@@ -17,6 +17,7 @@ import java.io.FileOutputStream
 import java.io.IOException
 import java.nio.file.Files
 import java.util.*
+import kotlin.math.roundToInt
 
 class S3APIWrapper(config: Properties, private val s3Client: AmazonS3) {
     private val bucketName: String = config.getProperty("aws.s3.bucketName")
@@ -146,12 +147,15 @@ class S3APIWrapper(config: Properties, private val s3Client: AmazonS3) {
         println("Result: contenttype ${metadata.contentType}, lastModified ${metadata.lastModified}")
     }
 
-    fun listAllObjects() {
-        val listing = s3Client.listObjects(bucketName)
+    fun listAllObjects(prefix: String) {
+        val listing = s3Client.listObjects(bucketName, prefix)
         listing.objectSummaries.forEach {
-            val metadata = s3Client.getObjectMetadata(bucketName, it.key)
-            println("found ${it.key}, contenttype ${metadata.contentType}, lastModified ${metadata.lastModified}")
+            //val metadata = s3Client.getObjectMetadata(bucketName, it.key)
+            println("Key: ${it.key} (${(it.size / 1e6).roundToInt()} MB, Storage class: ${it.storageClass})")
         }
-        println("Istruncated? --> ${listing.isTruncated}")
+        println("Total: ${listing.objectSummaries.size} objects found")
+        check(!listing.isTruncated) {
+            "FIXME: RESULTS ARE TRUNCATED. USE s3Client.listNextBatchOfObjects(listing) TO GET MORE."
+        }
     }
 }

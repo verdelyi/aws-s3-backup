@@ -1,9 +1,6 @@
 package s3backup
 
-import s3backup.commands.DownloadCommand
-import s3backup.commands.KeygenCommand
-import s3backup.commands.UploadBatchCommand
-import s3backup.commands.UploadFileAndDelete
+import s3backup.commands.*
 import java.io.File
 import java.util.*
 
@@ -29,6 +26,7 @@ object Main {
         }
         val command: Runnable? = when (val commandStr = args[0].uppercase(Locale.US)) {
             "KEYGEN" -> KeygenCommand(config = config)
+            "LIST" -> ListCommand(config = config, prefix = args[1])
             "UPLOAD-BATCH" -> UploadBatchCommand(config = config, backupItemsFile = File(args[1]))
             "UPLOADFILEANDDELETE-ENCRYPT" -> UploadFileAndDelete(
                 config = config,
