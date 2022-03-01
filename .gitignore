@@ -1,4 +1,8 @@
-/config*.properties
 /.gradle
 /build
 /.idea
+
+# don't accidentally upload credentials or key pairs
+/config*.properties
+*key.dat
+*.key
