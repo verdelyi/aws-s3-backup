@@ -29,9 +29,9 @@ object S3ClientFactory {
         .withRegion(clientRegion)
         .build()
 
-    /*fun makePlaintextClientWithoutCredentials(): AmazonS3 = AmazonS3ClientBuilder.standard()
+    fun makePlaintextClientWithoutCredentials(): AmazonS3 = AmazonS3ClientBuilder.standard()
         .withRegion(clientRegion)
-        .build()*/
+        .build()
 
     /*fun makeEncryptionClientWithCredentials_OLD(config: Properties): AmazonS3 {
         val keyPair = KeyOps.loadKeyPair(

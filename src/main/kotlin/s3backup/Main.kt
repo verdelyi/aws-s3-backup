@@ -42,6 +42,14 @@ object Main {
                 s3Client = S3ClientFactory.makePlaintextClientWithCredentials(config),
                 encryption = false
             )
+            // For example, AWS EC2 instances may have permission without explicitly providing credentials
+            "UPLOADFILEANDDELETE-PLAINTEXT-NOCREDS" -> UploadFileAndDelete(
+                config = config,
+                file = File(args[1]),
+                targetKey = args[2],
+                s3Client = S3ClientFactory.makePlaintextClientWithoutCredentials(),
+                encryption = false
+            )
             "DOWNLOAD" -> DownloadCommand(config = config, s3SourceKey = args[1], targetDir = args[2])
             else -> {
                 println("Unknown command $commandStr")
