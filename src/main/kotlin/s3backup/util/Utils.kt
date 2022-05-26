@@ -1,14 +1,16 @@
 import java.io.File
 import java.io.FileInputStream
 import java.math.BigInteger
+import java.nio.file.Files
+import java.nio.file.Path
 import java.security.DigestInputStream
 import java.security.MessageDigest
 import kotlin.math.pow
 
 object Utils {
-    fun computeFileHash(file: File): String {
+    fun computeFileHash(file: Path): String {
         val md = MessageDigest.getInstance("SHA-256")
-        FileInputStream(file).use { inputStream ->
+        Files.newInputStream(file).use { inputStream ->
             DigestInputStream(inputStream, md).use { dis ->
                 val buf = ByteArray(1000)
                 @Suppress("ControlFlowWithEmptyBody")

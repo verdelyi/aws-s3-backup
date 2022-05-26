@@ -9,7 +9,7 @@ class ListCommand(
     private val prefix: String
 ) : Runnable {
     override fun run() {
-        val s3 = S3APIWrapper(config = config, s3Client = S3ClientFactory.makeEncryptionClientWithCredentials(config))
+        val s3 = S3APIWrapper(config = config, s3Client = S3ClientFactory.makePlaintextClientWithCredentials(config))
         s3.listAllObjects(prefix = prefix)
     }
 }

@@ -9,20 +9,22 @@ import com.amazonaws.services.s3.model.PutObjectRequest
 import com.amazonaws.services.s3.model.S3Object
 import com.amazonaws.services.s3.model.StorageClass
 import com.amazonaws.services.s3.transfer.TransferManagerBuilder
+import s3backup.crypto.AWSEncryptionSDK
 import s3backup.util.FolderZipper
-import s3backup.util.copyTo
-import java.io.ByteArrayInputStream
-import java.io.File
-import java.io.FileOutputStream
-import java.io.IOException
+import s3backup.util.copyToWithProgress
+import java.io.*
 import java.nio.file.Files
+import java.nio.file.Path
+import java.nio.file.Paths
 import java.util.*
+import kotlin.io.path.isRegularFile
 import kotlin.math.roundToInt
 
 class S3APIWrapper(config: Properties, private val s3Client: AmazonS3) {
     private val bucketName: String = config.getProperty("aws.s3.bucketName")
     private val progressReportPerBytes: Long = 100_000_000
-    private val temporaryZipPath: String = config.getProperty("config.temporaryZipPath")
+    private val temporaryFile = Paths.get(config.getProperty("config.temporaryFilePath"))
+    private val masterKeyFile = Paths.get(config.getProperty("config.encryptionKeyFile"))
 
     object TagNames {
         const val encryption = "client-side-encryption"
@@ -43,7 +45,7 @@ class S3APIWrapper(config: Properties, private val s3Client: AmazonS3) {
             .filter { it.isFile }
             .forEach { file ->
                 uploadFile(
-                    sourceFile = file,
+                    sourceFile = file.toPath(),
                     targetKey = "$toRemoteFolder/${file.relativeTo(fromLocalFolder).path.replace('\\', '/')}",
                     storageClass = storageClass,
                     encryption = encryption
@@ -58,30 +60,47 @@ class S3APIWrapper(config: Properties, private val s3Client: AmazonS3) {
     ) {
         println("Processing folder ${fromLocalFolder.absolutePath}...")
         require(fromLocalFolder.isDirectory) { "${fromLocalFolder.absolutePath} must be a folder!" }
-        val zip = File(temporaryZipPath)
-        println("Zipping into temporary zip file ${zip.absolutePath})...")
-        FolderZipper.pack(sourceDir = fromLocalFolder, zipFile = zip, dirFilter = dirFilter)
+        println("Zipping into temporary zip file $temporaryFile)...")
+        FolderZipper.pack(sourceDir = fromLocalFolder, zipFile = temporaryFile.toFile(), dirFilter = dirFilter)
         println("Uploading...")
-        uploadFile(sourceFile = zip, targetKey = targetKey, storageClass = storageClass, encryption = encryption)
-        Files.delete(zip.toPath())
+        uploadFile(sourceFile = temporaryFile, targetKey = targetKey, storageClass = storageClass, encryption = encryption)
+        Files.delete(temporaryFile)
     }
 
     fun downloadFile(sourceKey: String, targetFile: File) {
         println("Downloading file [S3:/$sourceKey] -> [${targetFile.absolutePath}]...")
+        val metadata = s3Client.getObjectMetadata(bucketName, sourceKey)
+        val isEncrypted = metadata.getUserMetaDataOf(TagNames.encryption).toBooleanStrict()
+        println("Remote encryption status: $isEncrypted")
+
         s3Client.getObject(bucketName, sourceKey).use { o ->
-            val fos = FileOutputStream(targetFile)
-            val progressHandler: (Long) -> Unit = { println("${Utils.bytesToGigabytes(it)} GB downloaded") }
-            o.objectContent.use {
-                it.copyTo(out = fos, reportPerBytes = 100_000_000, onProgressEvent = progressHandler)
+            o.objectContent.use { inStream ->
+                if (isEncrypted) {
+                    val crypto = AWSEncryptionSDK.makeCryptoObject()
+                    val masterKey = AWSEncryptionSDK.loadKey(masterKeyFile)
+                    AWSEncryptionSDK.decryptFromStream(
+                        crypto = crypto,
+                        inStream = inStream,
+                        outFile = targetFile.toPath(),
+                        masterKey = masterKey
+                    )
+                } else {
+                    val fos = FileOutputStream(targetFile)
+                    inStream.copyToWithProgress(out = fos,
+                        reportPerBytes = 100_000_000,
+                        onProgressEvent = { println("${Utils.bytesToGigabytes(it)} GB downloaded") }
+                    )
+                }
             }
         }
     }
 
     fun uploadFile(
-        sourceFile: File, targetKey: String, storageClass: StorageClass = StorageClass.Standard,
+        sourceFile: Path, targetKey: String, storageClass: StorageClass = StorageClass.Standard,
         encryption: Boolean
     ) {
-        require(sourceFile.isFile) { "must be a file" }
+        require(sourceFile.isRegularFile()) { "must be a file" }
+        println("Comparing local and remote file hashes...")
         val localFileHash: String = Utils.computeFileHash(sourceFile)
         if (s3Client.doesObjectExist(bucketName, targetKey)) {
             val metadata = s3Client.getObjectMetadata(bucketName, targetKey)
@@ -96,13 +115,28 @@ class S3APIWrapper(config: Properties, private val s3Client: AmazonS3) {
             }
         }
         println(
-            "Uploading [${sourceFile.absolutePath}] -> [S3:/$targetKey]... " +
+            "Uploading [$sourceFile] -> [S3:/$targetKey]... " +
                     "(Storage class: ${storageClass.name}, Encryption: $encryption)"
         )
         val metadata = ObjectMetadata().apply {
             addUserMetadata(TagNames.encryption, encryption.toString())
             addUserMetadata(TagNames.hash, localFileHash)
         }
+        if (encryption) {
+            println(" -- Encrypting to $temporaryFile...") // because we need to know the size of the ciphertext in advance...
+            val crypto = AWSEncryptionSDK.makeCryptoObject()
+            val masterKey = AWSEncryptionSDK.loadKey(masterKeyFile)
+            AWSEncryptionSDK.encryptToFile(crypto, sourceFile, temporaryFile, masterKey)
+            uploadFileCore(sourceFile = temporaryFile, targetKey = targetKey, storageClass = storageClass, metadata = metadata)
+            Files.delete(temporaryFile) // Clean up temporary encrypted file
+        } else {
+            println(" -- NOT encrypting")
+            uploadFileCore(sourceFile = sourceFile, targetKey = targetKey, storageClass = storageClass, metadata = metadata)
+        }
+    }
+
+    private fun uploadFileCore(sourceFile: Path, targetKey: String, storageClass: StorageClass, metadata: ObjectMetadata) {
+        println(" -- Performing actual upload...")
         val progressListener = object : ProgressListener {
             var byteCounter: Long = 0
             var bytesAtLastReport: Long = 0
@@ -110,12 +144,12 @@ class S3APIWrapper(config: Properties, private val s3Client: AmazonS3) {
                 //println("Progress event: ${progressEvent.eventType}")
                 byteCounter += progressEvent.bytesTransferred
                 if (byteCounter - bytesAtLastReport > progressReportPerBytes) {
-                    println("${sourceFile.absolutePath}: ${Utils.bytesToGigabytes(byteCounter)} GB transferred")
+                    println("$sourceFile: ${Utils.bytesToGigabytes(byteCounter)} GB transferred")
                     bytesAtLastReport = byteCounter
                 }
             }
         }
-        val request: PutObjectRequest = PutObjectRequest(bucketName, targetKey, sourceFile)
+        val request: PutObjectRequest = PutObjectRequest(bucketName, targetKey, sourceFile.toFile())
             .withStorageClass(storageClass)
             .withMetadata(metadata)
             .withGeneralProgressListener(progressListener)
@@ -128,15 +162,13 @@ class S3APIWrapper(config: Properties, private val s3Client: AmazonS3) {
     }
 
     @Throws(IOException::class)
-    fun uploadObject(objectKeyName: String, plaintext: ByteArray): ByteArray {
+    fun uploadByteArray(objectKeyName: String, plaintext: ByteArray): ByteArray {
         S3Object().use { obj ->
             obj.key = objectKeyName
             obj.setObjectContent(ByteArrayInputStream(plaintext))
             val metadata = ObjectMetadata()
             metadata.contentLength = plaintext.size.toLong()
-            val putRequest = PutObjectRequest(
-                bucketName, obj.key, obj.objectContent, metadata
-            ).withStorageClass(StorageClass.Standard)
+            val putRequest = PutObjectRequest(bucketName, obj.key, obj.objectContent, metadata).withStorageClass(StorageClass.Standard)
             s3Client.putObject(putRequest)
         }
         return plaintext

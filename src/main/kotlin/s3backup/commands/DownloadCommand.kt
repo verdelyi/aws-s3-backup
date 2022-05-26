@@ -17,7 +17,7 @@ class DownloadCommand(
             // files COULD be encrypted, so use the encryption client
             val s3 = S3APIWrapper(
                 config = config,
-                s3Client = S3ClientFactory.makeEncryptionClientWithCredentials(config)
+                s3Client = S3ClientFactory.makePlaintextClientWithCredentials(config)
             )
             s3.downloadFile(sourceKey = s3SourceKey, targetFile = File(targetDir, s3SourceKey.split("/").last()))
             println("=== Download completed ===")

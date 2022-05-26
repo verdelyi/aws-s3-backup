@@ -1,11 +1,13 @@
 package s3backup
 
+import com.amazonaws.services.s3.model.StorageClass
 import s3backup.commands.*
+import s3backup.crypto.AWSEncryptionSDK
 import java.io.File
+import java.nio.file.Paths
 import java.util.*
 
-// TODO object metadata: encrypt SHA256 hash (and remove existing plaintext hashes.
-//  Just get hash, encrypt it, put it back. No need to get the objects.)
+// TODO object metadata: encrypt SHA256 hash? (or get rid of the hash...)
 object Main {
     private val config: Properties = ConfigLoader.load()
 
@@ -17,6 +19,21 @@ object Main {
         )
         dc.run()
     }*/
+
+    /*    val srcFile = Paths.get("/home/verdelyi/Desktop/hello.txt")
+        val crypto = AWSEncryptionSDK.makeCryptoObject()
+        val masterKey = AWSEncryptionSDK.loadKey(Paths.get("plr-backup-key.dat"))
+        println("Encrypting...")
+        AWSEncryptionSDK.encryptToFile(crypto = crypto, inFile = srcFile, outFile = Paths.get("tmp.encrypted"), masterKey = masterKey)
+        println("Decrypting...")
+        AWSEncryptionSDK.decryptFromFile(
+            crypto = crypto,
+            inFile = Paths.get("tmp.encrypted"),
+            outFile = Paths.get("tmp.decrypted"),
+            masterKey = masterKey
+        )
+        return
+    */
 
     @JvmStatic
     fun main(args: Array<String>) {
@@ -30,14 +47,14 @@ object Main {
             "UPLOAD-BATCH" -> UploadBatchCommand(config = config, backupItemsFile = File(args[1]))
             "UPLOADFILEANDDELETE-ENCRYPT" -> UploadFileAndDelete(
                 config = config,
-                file = File(args[1]),
+                file = Paths.get(args[1]),
                 targetKey = args[2],
-                s3Client = S3ClientFactory.makeEncryptionClientWithCredentials(config),
+                s3Client = S3ClientFactory.makePlaintextClientWithCredentials(config), // use encryption SDK separately.
                 encryption = true
             )
             "UPLOADFILEANDDELETE-PLAINTEXT" -> UploadFileAndDelete(
                 config = config,
-                file = File(args[1]),
+                file = Paths.get(args[1]),
                 targetKey = args[2],
                 s3Client = S3ClientFactory.makePlaintextClientWithCredentials(config),
                 encryption = false
@@ -45,7 +62,7 @@ object Main {
             // For example, AWS EC2 instances may have permission without explicitly providing credentials
             "UPLOADFILEANDDELETE-PLAINTEXT-NOCREDS" -> UploadFileAndDelete(
                 config = config,
-                file = File(args[1]),
+                file = Paths.get(args[1]),
                 targetKey = args[2],
                 s3Client = S3ClientFactory.makePlaintextClientWithoutCredentials(),
                 encryption = false

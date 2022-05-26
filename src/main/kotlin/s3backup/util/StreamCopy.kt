@@ -8,7 +8,7 @@ import java.io.OutputStream
  *
  * **Note** It is the caller's responsibility to close both of these resources.
  */
-fun InputStream.copyTo(out: OutputStream, reportPerBytes: Int, onProgressEvent: (totalBytesCopied: Long) -> Any): Long {
+fun InputStream.copyToWithProgress(out: OutputStream, reportPerBytes: Int, onProgressEvent: (totalBytesCopied: Long) -> Any): Long {
     var bytesCopied: Long = 0
     val buffer = ByteArray(1_000_000)
     var bytes = read(buffer)

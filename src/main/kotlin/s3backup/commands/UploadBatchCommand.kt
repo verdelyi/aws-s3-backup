@@ -5,14 +5,14 @@ import com.amazonaws.SdkClientException
 import s3backup.S3APIWrapper
 import s3backup.S3ClientFactory
 import java.io.File
+import java.nio.file.Paths
 import java.util.*
 
 class UploadBatchCommand(private val config: Properties,
                          private val backupItemsFile: File) : Runnable {
     override fun run() {
         try {
-            val s3Plain = S3APIWrapper(config, S3ClientFactory.makePlaintextClientWithCredentials(config))
-            val s3Encrypted = S3APIWrapper(config, S3ClientFactory.makeEncryptionClientWithCredentials(config))
+            val s3 = S3APIWrapper(config, S3ClientFactory.makePlaintextClientWithCredentials(config))
             backupItemsFile.useLines { lines ->
                 lines.forEach { line ->
                     if (line.startsWith("#") || line.isEmpty()) return@forEach
@@ -23,22 +23,19 @@ class UploadBatchCommand(private val config: Properties,
                             val localFolder = File(split[1])
                             val targetKey = split[2]
                             val encrypt = Utils.parseEncryptField(split[3])
-                            val client = if (encrypt) s3Encrypted else s3Plain
-                            client.uploadFolderAsZip(fromLocalFolder = localFolder, targetKey = targetKey, encryption = encrypt)
+                            s3.uploadFolderAsZip(fromLocalFolder = localFolder, targetKey = targetKey, encryption = encrypt)
                         }
                         "UPLOADFOLDER" -> {
                             val localFolder = File(split[1])
                             val remoteFolder = split[2]
                             val encrypt = Utils.parseEncryptField(split[3])
-                            val client = if (encrypt) s3Encrypted else s3Plain
-                            client.uploadFolder(fromLocalFolder = localFolder, toRemoteFolder = remoteFolder, encryption = encrypt)
+                            s3.uploadFolder(fromLocalFolder = localFolder, toRemoteFolder = remoteFolder, encryption = encrypt)
                         }
                         "UPLOADFILE" -> {
-                            val localFolder = File(split[1])
+                            val localFolder = Paths.get(split[1])
                             val targetKey = split[2]
                             val encrypt = Utils.parseEncryptField(split[3])
-                            val client = if (encrypt) s3Encrypted else s3Plain
-                            client.uploadFile(sourceFile = localFolder, targetKey = targetKey, encryption = encrypt)
+                            s3.uploadFile(sourceFile = localFolder, targetKey = targetKey, encryption = encrypt)
                         }
                         else -> throw UnsupportedOperationException("command $command not implemented")
                     }
