@@ -1,9 +1,8 @@
 package s3backup.commands
 
-import com.amazonaws.services.s3.AmazonS3
-import com.amazonaws.services.s3.model.StorageClass
 import s3backup.S3APIWrapper
-import java.io.File
+import software.amazon.awssdk.services.s3.S3Client
+import software.amazon.awssdk.services.s3.model.StorageClass
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.*
@@ -12,8 +11,8 @@ class UploadFileAndDelete(
     private val config: Properties,
     private val file: Path,
     private val targetKey: String,
-    private val s3Client: AmazonS3,
-    private val storageClass: StorageClass = StorageClass.StandardInfrequentAccess,
+    private val s3Client: S3Client,
+    private val storageClass: StorageClass = StorageClass.STANDARD_IA,
     private val encryption: Boolean
 ) : Runnable {
     override fun run() {

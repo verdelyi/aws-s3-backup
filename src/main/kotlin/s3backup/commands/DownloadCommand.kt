@@ -1,9 +1,9 @@
 package s3backup.commands
 
-import com.amazonaws.AmazonServiceException
-import com.amazonaws.SdkClientException
 import s3backup.S3APIWrapper
 import s3backup.S3ClientFactory
+import software.amazon.awssdk.awscore.exception.AwsServiceException
+import software.amazon.awssdk.core.exception.SdkClientException
 import java.io.File
 import java.util.*
 
@@ -21,7 +21,7 @@ class DownloadCommand(
             )
             s3.downloadFile(sourceKey = s3SourceKey, targetFile = File(targetDir, s3SourceKey.split("/").last()))
             println("=== Download completed ===")
-        } catch (e: AmazonServiceException) {
+        } catch (e: AwsServiceException) {
             // The call was transmitted successfully, but Amazon S3 couldn't process it, so it returned an error response.
             e.printStackTrace()
         } catch (e: SdkClientException) {

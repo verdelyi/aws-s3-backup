@@ -1,8 +1,6 @@
 package s3backup
 
-import com.amazonaws.services.s3.model.StorageClass
 import s3backup.commands.*
-import s3backup.crypto.AWSEncryptionSDK
 import java.io.File
 import java.nio.file.Paths
 import java.util.*

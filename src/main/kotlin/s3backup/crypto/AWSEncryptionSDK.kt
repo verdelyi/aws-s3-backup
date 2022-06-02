@@ -3,13 +3,9 @@ package s3backup.crypto
 // Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import com.amazonaws.encryptionsdk.AwsCrypto
-import com.amazonaws.encryptionsdk.CommitmentPolicy
-import com.amazonaws.encryptionsdk.CryptoAlgorithm
-import com.amazonaws.encryptionsdk.CryptoInputStream
-import com.amazonaws.encryptionsdk.MasterKey
+import Utils
+import com.amazonaws.encryptionsdk.*
 import com.amazonaws.encryptionsdk.jce.JceMasterKey
-import com.amazonaws.util.IOUtils
 import s3backup.util.copyToWithProgress
 import java.io.InputStream
 import java.nio.file.Files
@@ -42,7 +38,7 @@ object AWSEncryptionSDK {
     fun encryptToFile(crypto: AwsCrypto, inFile: Path, outFile: Path, masterKey: JceMasterKey) {
         val encryptingStream = encryptToStream(crypto, inFile, masterKey)
         val out = Files.newOutputStream(outFile)
-        IOUtils.copy(encryptingStream, out)
+        encryptingStream.copyTo(out)
         encryptingStream.close()
         out.close()
     }
