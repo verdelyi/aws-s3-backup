@@ -12,6 +12,7 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
 import java.util.*
+import kotlin.io.path.fileSize
 import kotlin.io.path.isRegularFile
 import kotlin.math.roundToInt
 
@@ -113,10 +114,10 @@ class S3APIWrapper(config: Properties, private val s3Client: S3Client) {
         } catch (e: NoSuchKeyException) {
             println("Object does not exist yet -- " + e.awsErrorDetails().errorMessage())
         }
-        println(
-            "Uploading [$sourceFile] -> [S3:/$targetKey]... " +
-                    "(Storage class: ${storageClass.name}, Encryption: $encryption)"
-        )
+        println("Uploading [$sourceFile] -> [S3:/$targetKey]... ")
+        println(" -- File size: ${sourceFile.fileSize()/1e6} MB")
+        println(" -- S3 Storage class: ${storageClass.name}")
+        println(" -- S3 client-side encryption: $encryption")
         val metadata = mapOf(
             TagNames.encryption to encryption.toString(),
         )
@@ -143,7 +144,7 @@ class S3APIWrapper(config: Properties, private val s3Client: S3Client) {
         storageClass: StorageClass,
         metadata: Map<String, String>
     ) {
-        println(" -- Performing actual upload...")
+        print(" -- Performing actual upload...")
         /*val progressListener = object : ProgressListener {
             var byteCounter: Long = 0
             var bytesAtLastReport: Long = 0
@@ -164,6 +165,7 @@ class S3APIWrapper(config: Properties, private val s3Client: S3Client) {
             .checksumAlgorithm(ChecksumAlgorithm.SHA256)
             .build()
         s3Client.putObject(objectRequest, sourceFile)
+        println("OK")
     }
 
     @Throws(IOException::class)
