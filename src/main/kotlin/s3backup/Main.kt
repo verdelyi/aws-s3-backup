@@ -6,10 +6,6 @@ import java.nio.file.Paths
 import java.util.*
 
 // TODO object metadata: encrypt SHA256 hash? (or get rid of the hash...)
-
-// Consider migrating the S3 code to V2 SDK:
-// https://docs.aws.amazon.com/sdk-for-java/latest/developer-guide/setup-project-gradle.html
-// https://docs.aws.amazon.com/sdk-for-java/latest/developer-guide/examples-s3-objects.html
 object Main {
     private val config: Properties = ConfigLoader.load()
 

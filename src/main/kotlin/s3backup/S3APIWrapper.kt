@@ -14,13 +14,13 @@ import java.nio.file.Paths
 import java.util.*
 import kotlin.io.path.isRegularFile
 import kotlin.math.roundToInt
-import kotlin.system.exitProcess
 
 
 class S3APIWrapper(config: Properties, private val s3Client: S3Client) {
     private val bucketName: String = config.getProperty("aws.s3.bucketName")
     private val progressReportPerBytes: Long = 100_000_000
-    private val temporaryFile = Paths.get(config.getProperty("config.temporaryFilePath"))
+    private val temporaryZipFile = Paths.get(config.getProperty("config.temporaryZipFilePath"))
+    private val temporaryEncryptedFile = Paths.get(config.getProperty("config.temporaryEncryptedFilePath"))
     private val masterKeyFile = Paths.get(config.getProperty("config.encryptionKeyFile"))
 
     object TagNames {
@@ -54,22 +54,21 @@ class S3APIWrapper(config: Properties, private val s3Client: S3Client) {
         storageClass: StorageClass = StorageClass.STANDARD,
         encryption: Boolean
     ) {
-        println("Processing folder ${fromLocalFolder.absolutePath}...")
         require(fromLocalFolder.isDirectory) { "${fromLocalFolder.absolutePath} must be a folder!" }
-        println("Zipping into temporary zip file $temporaryFile)...")
-        FolderZipper.pack(sourceDir = fromLocalFolder, zipFile = temporaryFile.toFile(), dirFilter = dirFilter)
+        println("Zipping into temporary zip file $temporaryZipFile)...")
+        FolderZipper.pack(sourceDir = fromLocalFolder, zipFile = temporaryZipFile.toFile(), dirFilter = dirFilter)
         println("Uploading...")
         uploadFile(
-            sourceFile = temporaryFile,
+            sourceFile = temporaryZipFile,
             targetKey = targetKey,
             storageClass = storageClass,
             encryption = encryption
         )
-        Files.delete(temporaryFile)
+        Files.delete(temporaryZipFile) // clean up temporary zip file
     }
 
-    fun downloadFile(sourceKey: String, targetFile: File) {
-        println("Downloading file [S3:/$sourceKey] -> [${targetFile.absolutePath}]...")
+    fun downloadFile(sourceKey: String, targetFile: Path) {
+        println("Downloading file [S3:/$sourceKey] -> [${targetFile}]...")
         val getObjectRequest = GetObjectRequest.builder()
             .bucket(bucketName)
             .key(sourceKey)
@@ -84,15 +83,16 @@ class S3APIWrapper(config: Properties, private val s3Client: S3Client) {
                 AWSEncryptionSDK.decryptFromStream(
                     crypto = crypto,
                     inStream = inStream,
-                    outFile = targetFile.toPath(),
+                    outFile = targetFile,
                     masterKey = masterKey
                 )
             } else {
-                val fos = FileOutputStream(targetFile)
-                inStream.copyToWithProgress(out = fos,
-                    reportPerBytes = 100_000_000,
-                    onProgressEvent = { println("${Utils.bytesToGigabytes(it)} GB downloaded") }
-                )
+                Files.newOutputStream(targetFile).use { fos ->
+                    inStream.copyToWithProgress(out = fos,
+                        reportPerBytes = 100_000_000,
+                        onProgressEvent = { println("${Utils.bytesToGigabytes(it)} GB downloaded") }
+                    )
+                }
             }
         }
     }
@@ -104,11 +104,10 @@ class S3APIWrapper(config: Properties, private val s3Client: S3Client) {
         encryption: Boolean
     ) {
         require(sourceFile.isRegularFile()) { "must be a file" }
-        // If it exists, check whether we should actually upload
         try {
             val objectRequest = HeadObjectRequest.builder().key(targetKey).bucket(bucketName).build()
             val objectHead: HeadObjectResponse = s3Client.headObject(objectRequest)
-            println("Object '$targetKey' already exists")
+            println("Object '$targetKey' already exists -- will overwrite")
             println("    Last modified: ${objectHead.lastModified()}")
             println("    Client-side encryption: ${objectHead.metadata()[TagNames.encryption]}")
         } catch (e: NoSuchKeyException) {
@@ -122,14 +121,14 @@ class S3APIWrapper(config: Properties, private val s3Client: S3Client) {
             TagNames.encryption to encryption.toString(),
         )
         if (encryption) {
-            println(" -- Encrypting to $temporaryFile...") // because we need to know the size of the ciphertext in advance...
+            println(" -- Encrypting to ${temporaryEncryptedFile}...") // because we need to know the size of the ciphertext in advance...
             val crypto = AWSEncryptionSDK.makeCryptoObject()
             val masterKey = AWSEncryptionSDK.loadKey(masterKeyFile)
-            AWSEncryptionSDK.encryptToFile(crypto, sourceFile, temporaryFile, masterKey)
+            AWSEncryptionSDK.encryptToFile(crypto, sourceFile, temporaryEncryptedFile, masterKey)
             uploadFileCore(
-                sourceFile = temporaryFile, targetKey = targetKey, storageClass = storageClass, metadata = metadata
+                sourceFile = temporaryEncryptedFile, targetKey = targetKey, storageClass = storageClass, metadata = metadata
             )
-            Files.delete(temporaryFile) // Clean up temporary encrypted file
+            Files.delete(temporaryEncryptedFile) // Clean up temporary encrypted file
         } else {
             println(" -- NOT encrypting")
             uploadFileCore(

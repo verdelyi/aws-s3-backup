@@ -4,7 +4,8 @@ import s3backup.S3APIWrapper
 import s3backup.S3ClientFactory
 import software.amazon.awssdk.awscore.exception.AwsServiceException
 import software.amazon.awssdk.core.exception.SdkClientException
-import java.io.File
+import java.nio.file.Files
+import java.nio.file.Paths
 import java.util.*
 
 class DownloadCommand(
@@ -19,7 +20,12 @@ class DownloadCommand(
                 config = config,
                 s3Client = S3ClientFactory.makePlaintextClientWithCredentials(config)
             )
-            s3.downloadFile(sourceKey = s3SourceKey, targetFile = File(targetDir, s3SourceKey.split("/").last()))
+            val targetDirPath = Paths.get(targetDir)
+            Files.createDirectories(targetDirPath)
+            s3.downloadFile(
+                sourceKey = s3SourceKey,
+                targetFile = targetDirPath.resolve(s3SourceKey.split("/").last())
+            )
             println("=== Download completed ===")
         } catch (e: AwsServiceException) {
             // The call was transmitted successfully, but Amazon S3 couldn't process it, so it returned an error response.

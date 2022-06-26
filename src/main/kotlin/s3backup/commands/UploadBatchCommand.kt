@@ -16,6 +16,7 @@ class UploadBatchCommand(private val config: Properties,
             backupItemsFile.useLines { lines ->
                 lines.forEach { line ->
                     if (line.startsWith("#") || line.isEmpty()) return@forEach
+                    println("Processing batch line ${line}...")
                     val split = line.split(" // ")
                     val command = split[0]
                     when (command) {
@@ -32,10 +33,10 @@ class UploadBatchCommand(private val config: Properties,
                             s3.uploadFolder(fromLocalFolder = localFolder, toRemoteFolder = remoteFolder, encryption = encrypt)
                         }
                         "UPLOADFILE" -> {
-                            val localFolder = Paths.get(split[1])
+                            val localFile = Paths.get(split[1])
                             val targetKey = split[2]
                             val encrypt = Utils.parseEncryptField(split[3])
-                            s3.uploadFile(sourceFile = localFolder, targetKey = targetKey, encryption = encrypt)
+                            s3.uploadFile(sourceFile = localFile, targetKey = targetKey, encryption = encrypt)
                         }
                         else -> throw UnsupportedOperationException("command $command not implemented")
                     }
