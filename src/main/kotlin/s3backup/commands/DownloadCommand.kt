@@ -15,7 +15,6 @@ class DownloadCommand(
 ) : Runnable {
     override fun run() {
         try {
-            // files COULD be encrypted, so use the encryption client
             val s3 = S3APIWrapper(
                 config = config,
                 s3Client = S3ClientFactory.makePlaintextClientWithCredentials(config)

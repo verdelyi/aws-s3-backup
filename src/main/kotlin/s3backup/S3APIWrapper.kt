@@ -99,8 +99,6 @@ class S3APIWrapper(config: Properties, private val s3Client: S3Client) {
         }
     }
 
-    // For progress tracking and integrity of large files, we could look at the multipart upload example at
-    // https://docs.aws.amazon.com/AmazonS3/latest/userguide/checking-object-integrity.html
     fun uploadFile(
         sourceFile: Path, targetKey: String, storageClass: StorageClass = StorageClass.STANDARD,
         encryption: Boolean
@@ -142,6 +140,9 @@ class S3APIWrapper(config: Properties, private val s3Client: S3Client) {
         }
     }
 
+    /** the new S3 transfer manager could support progress tracking, retries etc.
+     * https://docs.aws.amazon.com/sdk-for-java/latest/developer-guide/transfer-manager.html
+     */
     private fun uploadFileCore(
         sourceFile: Path,
         targetKey: String,

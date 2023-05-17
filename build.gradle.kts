@@ -12,11 +12,10 @@ application {
 }
 
 dependencies {
-    //implementation(platform("com.amazonaws:aws-java-sdk-bom:1.12.141")) // 1.12.89 // 1.11.1016 // 1.11.923
-    implementation(platform("software.amazon.awssdk:bom:2.20.61"))
-    //implementation("com.amazonaws:aws-java-sdk-s3")
+    implementation(platform("software.amazon.awssdk:bom:2.20.66"))
     implementation("software.amazon.awssdk:s3")
-
+//    implementation("software.amazon.awssdk:s3-transfer-manager")
+//    implementation("software.amazon.awssdk.crt:aws-crt:0.21.16")
     implementation("com.amazonaws:aws-encryption-sdk-java:2.4.0")
 
     //implementation("javax.xml.bind:jaxb-api:2.3.1") // for AWS SDK on Java 9+
