@@ -7,6 +7,7 @@ import s3backup.util.copyToWithProgress
 import software.amazon.awssdk.core.sync.RequestBody
 import software.amazon.awssdk.services.s3.S3Client
 import software.amazon.awssdk.services.s3.model.*
+import software.amazon.awssdk.services.s3.paginators.ListObjectsV2Iterable
 import java.io.*
 import java.nio.file.Files
 import java.nio.file.Path
@@ -115,7 +116,7 @@ class S3APIWrapper(config: Properties, private val s3Client: S3Client) {
             println("Object does not exist yet -- " + e.awsErrorDetails().errorMessage())
         }
         println("Uploading [$sourceFile] -> [S3:/$targetKey]... ")
-        println(" -- File size: ${sourceFile.fileSize()/1e6} MB")
+        println(" -- File size: ${sourceFile.fileSize() / 1e6} MB")
         println(" -- S3 Storage class: ${storageClass.name}")
         println(" -- S3 client-side encryption: $encryption")
         val metadata = mapOf(
@@ -127,7 +128,10 @@ class S3APIWrapper(config: Properties, private val s3Client: S3Client) {
             val masterKey = AWSEncryptionSDK.loadKey(masterKeyFile)
             AWSEncryptionSDK.encryptToFile(crypto, sourceFile, temporaryEncryptedFile, masterKey)
             uploadFileCore(
-                sourceFile = temporaryEncryptedFile, targetKey = targetKey, storageClass = storageClass, metadata = metadata
+                sourceFile = temporaryEncryptedFile,
+                targetKey = targetKey,
+                storageClass = storageClass,
+                metadata = metadata
             )
             Files.delete(temporaryEncryptedFile) // Clean up temporary encrypted file
         } else {
@@ -178,21 +182,22 @@ class S3APIWrapper(config: Properties, private val s3Client: S3Client) {
         s3Client.putObject(objectRequest, RequestBody.fromBytes(plaintext))
     }
 
-    fun listAllObjects(prefix: String) {
-        val listObjects = ListObjectsRequest
+    // See https://docs.aws.amazon.com/sdk-for-java/latest/developer-guide/pagination.html
+    fun listAllObjects(prefix: String, format: String) {
+        val listObjects = ListObjectsV2Request
             .builder()
             .bucket(bucketName)
             .prefix(prefix)
             .build()
-
-        val res: ListObjectsResponse = s3Client.listObjects(listObjects)
+        val res: ListObjectsV2Iterable = s3Client.listObjectsV2Paginator(listObjects)
         val objects = res.contents()
         objects.forEach {
-            println("Key: ${it.key()} (${(it.size() / 1e6).roundToInt()} MB, Storage class: ${it.storageClassAsString()})")
+            when (format) {
+                "NICE" -> println("Key: ${it.key()} (${(it.size() / 1e6).roundToInt()} MB, Storage class: ${it.storageClassAsString()})")
+                "SIMPLE" -> println(it.key())
+                else -> error("unknown format $format")
+            }
         }
-        println("Total: ${objects.size} objects found")
-        /*check(!objects.listing.isTruncated) {
-            "FIXME: RESULTS ARE TRUNCATED. USE s3Client.listNextBatchOfObjects(listing) TO GET MORE."
-        }*/
+        println("Total: ${objects.count()} objects found")
     }
 }
