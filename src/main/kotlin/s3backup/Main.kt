@@ -1,6 +1,7 @@
 package s3backup
 
 import s3backup.commands.*
+import s3backup.crypto.AWSEncryptionSDK
 import java.io.File
 import java.nio.file.Paths
 import java.util.*
@@ -18,20 +19,26 @@ object Main {
         dc.run()
     }*/
 
-    /*    val srcFile = Paths.get("/home/verdelyi/Desktop/hello.txt")
+    /*fun enctest() {
+        val srcFile = Paths.get("/home/verdelyi/Desktop/bigfile.zip")
         val crypto = AWSEncryptionSDK.makeCryptoObject()
-        val masterKey = AWSEncryptionSDK.loadKey(Paths.get("plr-backup-key.dat"))
-        println("Encrypting...")
-        AWSEncryptionSDK.encryptToFile(crypto = crypto, inFile = srcFile, outFile = Paths.get("tmp.encrypted"), masterKey = masterKey)
-        println("Decrypting...")
+        val masterKeyFile = Paths.get(config.getProperty("config.encryptionKeyFile"))
+        val masterKey = AWSEncryptionSDK.loadKey(masterKeyFile)
+        println("===================== Encryption test ========================")
+        AWSEncryptionSDK.encryptToFile(
+            crypto = crypto,
+            inFile = srcFile,
+            outFile = Paths.get("tmp.encrypted"),
+            masterKey = masterKey
+        )
+        println("===================== Decryption test ========================")
         AWSEncryptionSDK.decryptFromFile(
             crypto = crypto,
             inFile = Paths.get("tmp.encrypted"),
             outFile = Paths.get("tmp.decrypted"),
             masterKey = masterKey
         )
-        return
-    */
+    }*/
 
     @JvmStatic
     fun main(args: Array<String>) {
@@ -50,6 +57,7 @@ object Main {
                 s3Client = S3ClientFactory.makePlaintextClientWithCredentials(config), // use encryption SDK separately.
                 encryption = true
             )
+
             "UPLOADFILEANDDELETE-PLAINTEXT" -> UploadFileAndDelete(
                 config = config,
                 file = Paths.get(args[1]),
@@ -65,6 +73,7 @@ object Main {
                 s3Client = S3ClientFactory.makePlaintextClientWithoutCredentials(),
                 encryption = false
             )
+
             "DOWNLOAD" -> DownloadCommand(config = config, s3SourceKey = args[1], targetDir = args[2])
             else -> {
                 println("Unknown command $commandStr")

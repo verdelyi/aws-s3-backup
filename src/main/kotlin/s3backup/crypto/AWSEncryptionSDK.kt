@@ -24,6 +24,8 @@ import kotlin.io.path.writeBytes
  */
 object AWSEncryptionSDK {
 
+    private const val reportEncryptionProgressPerBytes = 1_000_000_000L
+
     fun encryptToStream(crypto: AwsCrypto, inFile: Path, masterKey: JceMasterKey): InputStream {
         // Create an encryption context to identify this ciphertext
         val context = Collections.singletonMap("Example", "FileStreaming")
@@ -31,14 +33,21 @@ object AWSEncryptionSDK {
         // Because the file might be too large to load into memory, we stream the data, instead of
         // loading it all at once.
         val inStream = Files.newInputStream(inFile)
-        val encryptingStream: CryptoInputStream<JceMasterKey> = crypto.createEncryptingStream(masterKey, inStream, context)
+        val encryptingStream: CryptoInputStream<JceMasterKey> =
+            crypto.createEncryptingStream(masterKey, inStream, context)
         return encryptingStream
     }
 
     fun encryptToFile(crypto: AwsCrypto, inFile: Path, outFile: Path, masterKey: JceMasterKey) {
         val encryptingStream = encryptToStream(crypto, inFile, masterKey)
         val out = Files.newOutputStream(outFile)
-        encryptingStream.copyTo(out)
+        print("Encrypting...")
+        encryptingStream.copyToWithProgress(
+            out = out,
+            reportPerBytes = reportEncryptionProgressPerBytes,
+            onProgressEvent = { print("${Utils.bytesToGigabytes(it)} GB...") }
+        )
+        println("Encryption done.")
         encryptingStream.close()
         out.close()
     }
@@ -46,17 +55,21 @@ object AWSEncryptionSDK {
     fun decryptFromStream(crypto: AwsCrypto, inStream: InputStream, outFile: Path, masterKey: JceMasterKey) {
         // Since we encrypted using an unsigned algorithm suite, we can use the recommended
         // createUnsignedMessageDecryptingStream method that only accepts unsigned messages.
-        val decryptingStream: CryptoInputStream<JceMasterKey> = crypto.createUnsignedMessageDecryptingStream(masterKey, inStream)
+        val decryptingStream: CryptoInputStream<JceMasterKey> =
+            crypto.createUnsignedMessageDecryptingStream(masterKey, inStream)
         // Verify the encryption context before returning the plaintext -- Does it contain the expected encryption context?
         check("FileStreaming" == decryptingStream.cryptoResult.encryptionContext["Example"]) { "Bad encryption context" }
 
         // Write the plaintext data to disk.
         val outStream = Files.newOutputStream(outFile)
+        print("Decrypting...")
         decryptingStream.copyToWithProgress(
             out = outStream,
-            reportPerBytes = 100_000_000,
-            onProgressEvent = { println("${Utils.bytesToGigabytes(it)} GB downloaded") })
+            reportPerBytes = reportEncryptionProgressPerBytes,
+            onProgressEvent = { print("${Utils.bytesToGigabytes(it)} GB...") }
+        )
         //IOUtils.copy(decryptingStream, outStream)
+        println("Decryption done.")
 
         decryptingStream.close()
         outStream.close()
