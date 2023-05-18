@@ -17,7 +17,7 @@ class DownloadCommand(
         try {
             val s3 = S3APIWrapper(
                 config = config,
-                s3Client = S3ClientFactory.makePlaintextClientWithCredentials(config)
+                s3AsyncClient = S3ClientFactory.makePlaintextClientWithCredentials(config)
             )
             val targetDirPath = Paths.get(targetDir)
             Files.createDirectories(targetDirPath)

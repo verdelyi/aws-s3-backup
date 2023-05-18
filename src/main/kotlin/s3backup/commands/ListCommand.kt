@@ -10,7 +10,7 @@ class ListCommand(
     private val format: String
 ) : Runnable {
     override fun run() {
-        val s3 = S3APIWrapper(config = config, s3Client = S3ClientFactory.makePlaintextClientWithCredentials(config))
-        s3.listAllObjects(prefix = prefix, format = format)
+        val s3 = S3APIWrapper(config = config, s3AsyncClient = S3ClientFactory.makePlaintextClientWithCredentials(config))
+        s3.listObjects(prefix = prefix, format = format)
     }
 }

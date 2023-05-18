@@ -4,7 +4,8 @@ import software.amazon.awssdk.auth.credentials.AwsBasicCredentials
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider
 import software.amazon.awssdk.regions.Region
-import software.amazon.awssdk.services.s3.S3Client
+import software.amazon.awssdk.services.s3.S3AsyncClient
+import software.amazon.awssdk.transfer.s3.SizeConstant.MB
 import java.util.*
 
 
@@ -19,12 +20,16 @@ object S3ClientFactory {
         return StaticCredentialsProvider.create(awsCreds)
     }
 
-    fun makePlaintextClientWithCredentials(config: Properties): S3Client = S3Client.builder()
+    fun makePlaintextClientWithCredentials(config: Properties): S3AsyncClient = S3AsyncClient.crtBuilder()
         .credentialsProvider(makeCredentials(config))
         .region(clientRegion)
+        .targetThroughputInGbps(20.0)
+        .minimumPartSizeInBytes(8 * MB)
         .build()
 
-    fun makePlaintextClientWithoutCredentials(): S3Client = S3Client.builder()
+    fun makePlaintextClientWithoutCredentials(): S3AsyncClient = S3AsyncClient.crtBuilder()
         .region(clientRegion)
+        .targetThroughputInGbps(20.0)
+        .minimumPartSizeInBytes(8 * MB)
         .build()
 }
