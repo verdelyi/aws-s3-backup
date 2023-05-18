@@ -1,10 +1,14 @@
 package s3backup.commands
 
 import s3backup.crypto.AWSEncryptionSDK
+import java.nio.file.Path
 import java.util.*
 
-class KeygenCommand(private val config: Properties): Runnable {
+class KeygenCommand : Runnable {
     override fun run() {
-        AWSEncryptionSDK.generateKey(config.getProperty("config.encryptionKeyFile"))
+        val keyFilePath = Path.of("new-aws-s3-backup-encryption-key.dat")
+        println("Generating encryption key to ${keyFilePath}...")
+        AWSEncryptionSDK.generateKey(keyFilePath)
+        println("Done.")
     }
 }

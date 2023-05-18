@@ -10,7 +10,6 @@ import s3backup.util.copyToWithProgress
 import java.io.InputStream
 import java.nio.file.Files
 import java.nio.file.Path
-import java.nio.file.Paths
 import java.security.SecureRandom
 import java.util.*
 import javax.crypto.SecretKey
@@ -80,11 +79,11 @@ object AWSEncryptionSDK {
         decryptFromStream(crypto, inStream, outFile, masterKey)
     }
 
-    fun generateKey(keyfile: String) {
+    fun generateKey(keyFilePath: Path) {
         val rnd = SecureRandom()
         val rawKey = ByteArray(32)
         rnd.nextBytes(rawKey)
-        Paths.get(keyfile).writeBytes(rawKey)
+        keyFilePath.writeBytes(rawKey)
     }
 
     fun loadKey(keyfile: Path): JceMasterKey {

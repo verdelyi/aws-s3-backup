@@ -47,7 +47,7 @@ object Main {
             return
         }
         val command: Runnable? = when (val commandStr = args[0].uppercase(Locale.US)) {
-            "KEYGEN" -> KeygenCommand(config = config)
+            "KEYGEN" -> KeygenCommand()
             "LIST" -> ListCommand(config = config, prefix = args[1], format = args[2])
             "UPLOAD-BATCH" -> UploadBatchCommand(config = config, backupItemsFile = File(args[1]))
             "UPLOADFILEANDDELETE-ENCRYPT" -> UploadFileAndDelete(
