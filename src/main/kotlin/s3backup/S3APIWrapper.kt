@@ -26,6 +26,7 @@ class S3APIWrapper(config: Properties, private val s3AsyncClient: S3AsyncClient)
     private val temporaryZipFile = Paths.get(config.getProperty("config.temporaryZipFilePath"))
     private val temporaryEncryptedFile = Paths.get(config.getProperty("config.temporaryEncryptedFilePath"))
     private val masterKeyFile = Paths.get(config.getProperty("config.encryptionKeyFile"))
+    private val progressBarNumTicks = 30
 
     object TagNames {
         const val encryption = "client-side-encryption"
@@ -78,12 +79,14 @@ class S3APIWrapper(config: Properties, private val s3AsyncClient: S3AsyncClient)
     }
 
     fun downloadFile(sourceKey: String, targetFile: Path) {
-        println("Downloading file [S3:/$sourceKey] -> [${temporaryEncryptedFile}]...")
+        println("Downloading...")
+        println(" -- Source: S3 bucket [$bucketName], key [$sourceKey]")
+        println(" -- Destination: local file [${temporaryEncryptedFile}]")
         val downloadFileRequest = DownloadFileRequest.builder()
             .getObjectRequest { b: GetObjectRequest.Builder ->
                 b.bucket(bucketName).key(sourceKey)
             }
-            .addTransferListener(LoggingTransferListener.create(100))
+            .addTransferListener(LoggingTransferListener.create(progressBarNumTicks))
             .destination(temporaryEncryptedFile)
             .build()
         val downloadFile = transferManager.downloadFile(downloadFileRequest)
@@ -93,7 +96,7 @@ class S3APIWrapper(config: Properties, private val s3AsyncClient: S3AsyncClient)
         println("Download done. Remote encryption status: $isEncrypted")
         Files.newInputStream(temporaryEncryptedFile).use { inStream ->
             if (isEncrypted) {
-                println("Decrypting to $targetFile...")
+                println(" -- Decrypting to $targetFile...")
                 val crypto = AWSEncryptionSDK.makeCryptoObject()
                 val masterKey = AWSEncryptionSDK.loadKey(masterKeyFile)
                 AWSEncryptionSDK.decryptFromStream(
@@ -101,10 +104,11 @@ class S3APIWrapper(config: Properties, private val s3AsyncClient: S3AsyncClient)
                 )
                 Files.delete(temporaryEncryptedFile) // Clean up temporary encrypted file
             } else {
-                println("Moving file directly to $targetFile...")
+                println("-- Moving file directly to $targetFile...")
                 Files.move(temporaryEncryptedFile, targetFile)
             }
         }
+        println("Decryption done.")
     }
 
     fun uploadFile(
@@ -126,8 +130,9 @@ class S3APIWrapper(config: Properties, private val s3AsyncClient: S3AsyncClient)
                 throw e
             }
         }
-        println("Uploading [$sourceFile] -> [S3:/$targetKey]... ")
-        println(" -- File size: ${sourceFile.fileSize() / 1e6} MB")
+        println("Uploading...")
+        println(" -- Source: local file [$sourceFile] (${sourceFile.fileSize() / 1e6} MB)")
+        println(" -- Destination: S3 bucket [$bucketName], key [$targetKey]")
         println(" -- S3 Storage class: ${storageClass.name}")
         println(" -- S3 client-side encryption: $encryption")
         val metadata = mapOf(TagNames.encryption to encryption.toString())
@@ -166,7 +171,7 @@ class S3APIWrapper(config: Properties, private val s3AsyncClient: S3AsyncClient)
                     .metadata(metadata)
                     .checksumAlgorithm(ChecksumAlgorithm.SHA256)
             }
-            .addTransferListener(LoggingTransferListener.create())
+            .addTransferListener(LoggingTransferListener.create(progressBarNumTicks))
             .source(sourceFile)
             .build()
         val fileUpload = transferManager.uploadFile(uploadFileRequest)
