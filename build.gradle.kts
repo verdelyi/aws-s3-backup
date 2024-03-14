@@ -1,5 +1,5 @@
 plugins {
-    kotlin("jvm") version "1.8.21"
+    kotlin("jvm") version "1.9.23"
     application
 }
 
@@ -19,7 +19,7 @@ dependencies {
     implementation("com.amazonaws:aws-encryption-sdk-java:2.4.0")
     implementation("org.slf4j:slf4j-simple:2.0.7")
     //implementation("javax.xml.bind:jaxb-api:2.3.1") // for AWS SDK on Java 9+
-    implementation("org.bouncycastle:bcprov-ext-jdk18on:1.73")
+    implementation("org.bouncycastle:bcprov-ext-jdk18on:1.77")
 
 }
 

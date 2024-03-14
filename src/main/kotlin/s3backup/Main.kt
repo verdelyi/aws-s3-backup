@@ -8,7 +8,6 @@ import java.util.*
 
 // TODO object metadata: encrypt SHA256 hash? (or get rid of the hash...)
 object Main {
-    private val config: Properties = ConfigLoader.load()
 
     /*fun test() {
         val dc = DownloadCommand(
@@ -43,38 +42,46 @@ object Main {
     @JvmStatic
     fun main(args: Array<String>) {
         if (args.isEmpty()) {
-            println("ERROR: Please supply a command")
+            println("ERROR: Please supply arguments (configfile, command, others)")
             return
         }
-        val command: Runnable? = when (val commandStr = args[0].uppercase(Locale.US)) {
+
+        val configFilePath = args[0]
+        val commandStr =  args[1].uppercase(Locale.US)
+        val param1 = args[2]
+        val param2 = args[3]
+
+        val config: Properties = ConfigLoader.load(configFilePath)
+
+        val command: Runnable? = when (commandStr) {
             "KEYGEN" -> KeygenCommand()
-            "LIST" -> ListCommand(config = config, prefix = args[1], format = args[2])
-            "UPLOAD-BATCH" -> UploadBatchCommand(config = config, backupItemsFile = File(args[1]))
+            "LIST" -> ListCommand(config = config, prefix = param1, format = param2)
+            "UPLOAD-BATCH" -> UploadBatchCommand(config = config, backupItemsFile = File(param1))
             "UPLOADFILEANDDELETE-ENCRYPT" -> UploadFileAndDelete(
                 config = config,
-                file = Paths.get(args[1]),
-                targetKey = args[2],
+                file = Paths.get(param1),
+                targetKey = param2,
                 s3Client = S3ClientFactory.makePlaintextClientWithCredentials(config), // use encryption SDK separately.
                 encryption = true
             )
 
             "UPLOADFILEANDDELETE-PLAINTEXT" -> UploadFileAndDelete(
                 config = config,
-                file = Paths.get(args[1]),
-                targetKey = args[2],
+                file = Paths.get(param1),
+                targetKey = param2,
                 s3Client = S3ClientFactory.makePlaintextClientWithCredentials(config),
                 encryption = false
             )
             // For example, AWS EC2 instances may have permission without explicitly providing credentials
             "UPLOADFILEANDDELETE-PLAINTEXT-NOCREDS" -> UploadFileAndDelete(
                 config = config,
-                file = Paths.get(args[1]),
-                targetKey = args[2],
+                file = Paths.get(param1),
+                targetKey = param2,
                 s3Client = S3ClientFactory.makePlaintextClientWithoutCredentials(),
                 encryption = false
             )
 
-            "DOWNLOAD" -> DownloadCommand(config = config, s3SourceKey = args[1], targetDir = args[2])
+            "DOWNLOAD" -> DownloadCommand(config = config, s3SourceKey = param1, targetDir = param2)
             else -> {
                 println("Unknown command $commandStr")
                 null
