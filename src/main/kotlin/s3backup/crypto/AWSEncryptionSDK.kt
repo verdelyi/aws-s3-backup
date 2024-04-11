@@ -1,13 +1,16 @@
 package s3backup.crypto
 
-// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
-// SPDX-License-Identifier: Apache-2.0
-
 import Utils
 import com.amazonaws.encryptionsdk.*
 import com.amazonaws.encryptionsdk.jce.JceMasterKey
 import s3backup.util.copyToWithProgress
+import software.amazon.cryptography.materialproviders.IKeyring
+import software.amazon.cryptography.materialproviders.MaterialProviders
+import software.amazon.cryptography.materialproviders.model.AesWrappingAlg
+import software.amazon.cryptography.materialproviders.model.CreateRawAesKeyringInput
+import software.amazon.cryptography.materialproviders.model.MaterialProvidersConfig
 import java.io.InputStream
+import java.nio.ByteBuffer
 import java.nio.file.Files
 import java.nio.file.Path
 import java.security.SecureRandom
@@ -18,14 +21,14 @@ import kotlin.io.path.readBytes
 import kotlin.io.path.writeBytes
 
 /**
- * This program demonstrates using a standard Java [SecretKey] object as a [MasterKey] to
- * encrypt and decrypt streaming data.
+ * Based on this example:
+ * https://docs.aws.amazon.com/encryption-sdk/latest/developer-guide/java-example-code.html
  */
 object AWSEncryptionSDK {
 
     private const val reportEncryptionProgressPerBytes = 1_000_000_000L
 
-    fun encryptToStream(crypto: AwsCrypto, inFile: Path, masterKey: JceMasterKey): InputStream {
+    fun encryptToStream(crypto: AwsCrypto, inFile: Path, masterKey: IKeyring): InputStream {
         // Create an encryption context to identify this ciphertext
         val context = Collections.singletonMap("Example", "FileStreaming")
 
@@ -37,7 +40,7 @@ object AWSEncryptionSDK {
         return encryptingStream
     }
 
-    fun encryptToFile(crypto: AwsCrypto, inFile: Path, outFile: Path, masterKey: JceMasterKey) {
+    fun encryptToFile(crypto: AwsCrypto, inFile: Path, outFile: Path, masterKey: IKeyring) {
         val encryptingStream = encryptToStream(crypto, inFile, masterKey)
         val out = Files.newOutputStream(outFile)
         print("Encrypting...")
@@ -51,7 +54,7 @@ object AWSEncryptionSDK {
         out.close()
     }
 
-    fun decryptFromStream(crypto: AwsCrypto, inStream: InputStream, outFile: Path, masterKey: JceMasterKey) {
+    fun decryptFromStream(crypto: AwsCrypto, inStream: InputStream, outFile: Path, masterKey: IKeyring) {
         // Since we encrypted using an unsigned algorithm suite, we can use the recommended
         // createUnsignedMessageDecryptingStream method that only accepts unsigned messages.
         val decryptingStream: CryptoInputStream<JceMasterKey> =
@@ -74,7 +77,7 @@ object AWSEncryptionSDK {
         outStream.close()
     }
 
-    fun decryptFromFile(crypto: AwsCrypto, inFile: Path, outFile: Path, masterKey: JceMasterKey) {
+    fun decryptFromFile(crypto: AwsCrypto, inFile: Path, outFile: Path, masterKey: IKeyring) {
         val inStream = Files.newInputStream(inFile)
         decryptFromStream(crypto, inStream, outFile, masterKey)
     }
@@ -86,11 +89,19 @@ object AWSEncryptionSDK {
         keyFilePath.writeBytes(rawKey)
     }
 
-    fun loadKey(keyfile: Path): JceMasterKey {
+    fun loadKey(keyfile: Path): IKeyring {
         val rawKey = keyfile.readBytes()
         val secretkey: SecretKey = SecretKeySpec(rawKey, "AES")
-        // Create a JCE master key provider using the random key and an AES-GCM encryption algorithm
-        return JceMasterKey.getInstance(secretkey, "Example", "PLRBackupKeyID", "AES/GCM/NoPadding")
+        val materialProviders = MaterialProviders.builder()
+            .MaterialProvidersConfig(MaterialProvidersConfig.builder().build())
+            .build()
+        val keyringInput: CreateRawAesKeyringInput = CreateRawAesKeyringInput.builder()
+            .wrappingKey(ByteBuffer.wrap(secretkey.encoded))
+            .keyNamespace("Example")
+            .keyName("PLRBackupKeyID")
+            .wrappingAlg(AesWrappingAlg.ALG_AES256_GCM_IV12_TAG16)
+            .build()
+        return materialProviders.CreateRawAesKeyring(keyringInput)
     }
 
     fun makeCryptoObject(): AwsCrypto {

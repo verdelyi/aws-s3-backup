@@ -12,11 +12,11 @@ application {
 }
 
 dependencies {
-    implementation(platform("software.amazon.awssdk:bom:2.20.66"))
+    implementation(platform("software.amazon.awssdk:bom:2.25.28"))
     implementation("software.amazon.awssdk:s3")
     implementation("software.amazon.awssdk:s3-transfer-manager")
-    implementation("software.amazon.awssdk.crt:aws-crt:0.21.16")
-    implementation("com.amazonaws:aws-encryption-sdk-java:2.4.0")
+    implementation("software.amazon.awssdk.crt:aws-crt:0.29.15") // not managed by the bom apparently
+    implementation("com.amazonaws:aws-encryption-sdk-java:3.0.0") // not managed by the bom apparently
     implementation("org.slf4j:slf4j-simple:2.0.7")
     //implementation("javax.xml.bind:jaxb-api:2.3.1") // for AWS SDK on Java 9+
     implementation("org.bouncycastle:bcprov-ext-jdk18on:1.77")
