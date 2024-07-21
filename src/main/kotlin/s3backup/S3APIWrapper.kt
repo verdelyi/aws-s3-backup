@@ -93,22 +93,21 @@ class S3APIWrapper(config: Properties, private val s3AsyncClient: S3AsyncClient)
         val downloadResult = downloadFile.completionFuture().join()
 
         val isEncrypted = downloadResult.response().metadata()[TagNames.encryption]!!.toBooleanStrict()
-        println("Download done. Remote encryption status: $isEncrypted")
         Files.newInputStream(temporaryEncryptedFile).use { inStream ->
             if (isEncrypted) {
-                println(" -- Decrypting to $targetFile...")
+                println(" -- File is encrypted. Decrypting to $targetFile...")
                 val crypto = AWSEncryptionSDK.makeCryptoObject()
                 val masterKey = AWSEncryptionSDK.loadKey(masterKeyFile)
                 AWSEncryptionSDK.decryptFromStream(
                     crypto = crypto, inStream = inStream, outFile = targetFile, masterKey = masterKey
                 )
+                println("Decryption done, deleting temp file.")
                 Files.delete(temporaryEncryptedFile) // Clean up temporary encrypted file
             } else {
-                println("-- Moving file directly to $targetFile...")
+                println("-- File is not encrypted. Moving it to $targetFile...")
                 Files.move(temporaryEncryptedFile, targetFile)
             }
         }
-        println("Decryption done.")
     }
 
     fun uploadFile(

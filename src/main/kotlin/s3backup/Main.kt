@@ -1,7 +1,6 @@
 package s3backup
 
 import s3backup.commands.*
-import s3backup.crypto.AWSEncryptionSDK
 import java.io.File
 import java.nio.file.Paths
 import java.util.*
@@ -47,17 +46,17 @@ object Main {
         }
 
         val configFilePath = args[0]
+        val config: Properties = ConfigLoader.load(configFilePath)
+
         val commandStr =  args[1].uppercase(Locale.US)
         val param1 = args[2]
         val param2 = args[3]
-
-        val config: Properties = ConfigLoader.load(configFilePath)
 
         val command: Runnable? = when (commandStr) {
             "KEYGEN" -> KeygenCommand()
             "LIST" -> ListCommand(config = config, prefix = param1, format = param2)
             "UPLOAD-BATCH" -> UploadBatchCommand(config = config, backupItemsFile = File(param1))
-            "UPLOADFILEANDDELETE-ENCRYPT" -> UploadFileAndDelete(
+            "UPLOADFILE-ENCRYPT" -> UploadFile(
                 config = config,
                 file = Paths.get(param1),
                 targetKey = param2,
@@ -65,7 +64,7 @@ object Main {
                 encryption = true
             )
 
-            "UPLOADFILEANDDELETE-PLAINTEXT" -> UploadFileAndDelete(
+            "UPLOADFILE-PLAINTEXT" -> UploadFile(
                 config = config,
                 file = Paths.get(param1),
                 targetKey = param2,
@@ -73,7 +72,7 @@ object Main {
                 encryption = false
             )
             // For example, AWS EC2 instances may have permission without explicitly providing credentials
-            "UPLOADFILEANDDELETE-PLAINTEXT-NOCREDS" -> UploadFileAndDelete(
+            "UPLOADFILE-PLAINTEXT-NOCREDS" -> UploadFile(
                 config = config,
                 file = Paths.get(param1),
                 targetKey = param2,
