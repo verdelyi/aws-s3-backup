@@ -1,6 +1,3 @@
-import org.jetbrains.kotlin.gradle.dsl.JvmTarget
-import org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile
-
 plugins {
     kotlin("jvm") version "2.0.0"
     application
@@ -26,19 +23,6 @@ dependencies {
 
 }
 
-/*val fatJar = task("fatJar", type = Jar::class) {
-    manifest { attributes["Main-Class"] = application.mainClass.get() }
-    from(configurations.compileClasspath.map { config -> config.map { if (it.isDirectory) it else zipTree(it) } })
-    with(tasks["jar"] as CopySpec)
-}*/
-
-/*val jar by tasks.getting(Jar::class) {
-    manifest {
-        attributes["Main-Class"] = application.mainClass.get()
-    }
-    from(configurations.compileClasspath.map { config -> config.map { if (it.isDirectory) it else zipTree(it) } })
-}*/
-
-tasks.withType<KotlinJvmCompile>().configureEach {
-    compilerOptions.jvmTarget.set(JvmTarget.JVM_17)
+kotlin {
+    jvmToolchain(17)
 }
