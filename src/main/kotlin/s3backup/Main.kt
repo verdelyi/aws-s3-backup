@@ -45,42 +45,43 @@ object Main {
             return
         }
 
+        // Fixed 1st param: config file
         val configFilePath = args[0]
         val config: Properties = ConfigLoader.load(configFilePath)
 
+        // Fixed 2nd param: command
         val commandStr =  args[1].uppercase(Locale.US)
-        val param1 = args[2]
-        val param2 = args[3]
 
+        // Other params are command-dependent
         val command: Runnable? = when (commandStr) {
             "KEYGEN" -> KeygenCommand()
-            "LIST" -> ListCommand(config = config, prefix = param1, format = param2)
-            "UPLOAD-BATCH" -> UploadBatchCommand(config = config, backupItemsFile = File(param1))
+            "LIST" -> ListCommand(config = config, prefix = args[2], format = args[3])
+            "UPLOAD-BATCH" -> UploadBatchCommand(config = config, backupItemsFile = File(args[2]))
             "UPLOADFILE-ENCRYPT" -> UploadFile(
                 config = config,
-                file = Paths.get(param1),
-                targetKey = param2,
+                file = Paths.get(args[2]),
+                targetKey = args[3],
                 s3Client = S3ClientFactory.makePlaintextClientWithCredentials(config), // use encryption SDK separately.
                 encryption = true
             )
 
             "UPLOADFILE-PLAINTEXT" -> UploadFile(
                 config = config,
-                file = Paths.get(param1),
-                targetKey = param2,
+                file = Paths.get(args[2]),
+                targetKey = args[3],
                 s3Client = S3ClientFactory.makePlaintextClientWithCredentials(config),
                 encryption = false
             )
             // For example, AWS EC2 instances may have permission without explicitly providing credentials
             "UPLOADFILE-PLAINTEXT-NOCREDS" -> UploadFile(
                 config = config,
-                file = Paths.get(param1),
-                targetKey = param2,
+                file = Paths.get(args[2]),
+                targetKey = args[3],
                 s3Client = S3ClientFactory.makePlaintextClientWithoutCredentials(),
                 encryption = false
             )
 
-            "DOWNLOAD" -> DownloadCommand(config = config, s3SourceKey = param1, targetDir = param2)
+            "DOWNLOAD" -> DownloadCommand(config = config, s3SourceKey = args[2], targetDir = args[3])
             else -> {
                 println("Unknown command $commandStr")
                 null
