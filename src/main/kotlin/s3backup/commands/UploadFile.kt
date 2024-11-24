@@ -11,7 +11,7 @@ class UploadFile(
     private val file: Path,
     private val targetKey: String,
     private val s3Client: S3AsyncClient,
-    private val storageClass: StorageClass = StorageClass.STANDARD_IA,
+    private val storageClass: StorageClass,
     private val encryption: Boolean
 ) : Runnable {
     override fun run() {

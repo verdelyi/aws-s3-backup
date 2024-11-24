@@ -40,7 +40,7 @@ class S3APIWrapper(config: Properties, private val s3AsyncClient: S3AsyncClient)
     // https://docs.aws.amazon.com/sdk-for-java/latest/developer-guide/transfer-manager.html
     fun uploadFolder(
         fromLocalFolder: File, toRemoteFolder: String,
-        storageClass: StorageClass = StorageClass.STANDARD,
+        storageClass: StorageClass,
         encryption: Boolean
     ) {
         require(fromLocalFolder.isDirectory) { "${fromLocalFolder.absolutePath} must be a folder!" }
@@ -62,13 +62,12 @@ class S3APIWrapper(config: Properties, private val s3AsyncClient: S3AsyncClient)
     // https://docs.aws.amazon.com/sdk-for-java/latest/developer-guide/transfer-manager.html
     fun uploadFolderAsZip(
         fromLocalFolder: File, targetKey: String,
-        storageClass: StorageClass = StorageClass.STANDARD,
+        storageClass: StorageClass,
         encryption: Boolean
     ) {
         require(fromLocalFolder.isDirectory) { "${fromLocalFolder.absolutePath} must be a folder!" }
         println("Zipping into temporary zip file $temporaryZipFile)...")
         FolderZipper.pack(sourceDir = fromLocalFolder, zipFile = temporaryZipFile.toFile(), dirFilter = dirFilter)
-        println("Uploading...")
         uploadFile(
             sourceFile = temporaryZipFile,
             targetKey = targetKey,
@@ -110,17 +109,12 @@ class S3APIWrapper(config: Properties, private val s3AsyncClient: S3AsyncClient)
         }
     }
 
-    fun uploadFile(
-        sourceFile: Path, targetKey: String, storageClass: StorageClass = StorageClass.STANDARD,
-        encryption: Boolean
-    ) {
+    fun uploadFile(sourceFile: Path, targetKey: String, storageClass: StorageClass, encryption: Boolean) {
         require(sourceFile.isRegularFile()) { "must be a file" }
         try {
             val objectRequest = HeadObjectRequest.builder().key(targetKey).bucket(bucketName).build()
             val objectHead: HeadObjectResponse = s3AsyncClient.headObject(objectRequest).join()
-            println("Object '$targetKey' already exists -- will overwrite")
-            println("    Last modified: ${objectHead.lastModified()}")
-            println("    Client-side encryption: ${objectHead.metadata()[TagNames.encryption]}")
+            println("Object '$targetKey' already exists (Last modified: ${objectHead.lastModified()}) -- will overwrite")
         } catch (e: CompletionException) {
             if (e.cause is NoSuchKeyException) {
                 val ce = e.cause as NoSuchKeyException
@@ -129,11 +123,10 @@ class S3APIWrapper(config: Properties, private val s3AsyncClient: S3AsyncClient)
                 throw e
             }
         }
-        println("Uploading...")
-        println(" -- Source: local file [$sourceFile] (${sourceFile.fileSize() / 1e6} MB)")
-        println(" -- Destination: S3 bucket [$bucketName], key [$targetKey]")
-        println(" -- S3 Storage class: ${storageClass.name}")
-        println(" -- S3 client-side encryption: $encryption")
+        println(
+            "Uploading $sourceFile (${String.format("%.1f", sourceFile.fileSize() / 1_000_000.0)} MB) " +
+                    "to S3->$bucketName->$targetKey (S3 Storage class: ${storageClass.name}, client-side encryption: $encryption)"
+        )
         val metadata = mapOf(TagNames.encryption to encryption.toString())
         if (encryption) {
             println(" -- Encrypting to ${temporaryEncryptedFile}...") // because we need to know the size of the ciphertext in advance...
@@ -155,13 +148,7 @@ class S3APIWrapper(config: Properties, private val s3AsyncClient: S3AsyncClient)
         }
     }
 
-    private fun uploadFileCore(
-        sourceFile: Path,
-        targetKey: String,
-        storageClass: StorageClass,
-        metadata: Map<String, String>
-    ) {
-        print(" -- Performing actual upload...")
+    private fun uploadFileCore(sourceFile: Path, targetKey: String, storageClass: StorageClass, metadata: Map<String, String>) {
         val uploadFileRequest = UploadFileRequest.builder()
             .putObjectRequest { b: PutObjectRequest.Builder ->
                 b.bucket(bucketName)
