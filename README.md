@@ -15,8 +15,6 @@ The config file should look like this:
 aws.accessKey=.............. (AWS credentials)
 aws.secretKey=................ (AWS credentials)
 aws.s3.bucketName=............. (AWS S3 bucket)
-config.temporaryZipFilePath=......... (file path for temp file. Dir should exist.)
-config.temporaryEncryptedFilePath=......... (file path for another, different temp file. Dir should exist.)
 config.encryptionKeyFile=.......... (path to encryption key file)
 ```
 

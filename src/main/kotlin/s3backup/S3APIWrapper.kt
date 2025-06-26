@@ -23,8 +23,6 @@ import kotlin.math.roundToInt
 
 class S3APIWrapper(config: Properties, private val s3AsyncClient: S3AsyncClient) {
     private val bucketName: String = config.getProperty("aws.s3.bucketName")
-    private val temporaryZipFile = Paths.get(config.getProperty("config.temporaryZipFilePath"))
-    private val temporaryEncryptedFile = Paths.get(config.getProperty("config.temporaryEncryptedFilePath"))
     private val masterKeyFile = Paths.get(config.getProperty("config.encryptionKeyFile"))
     private val progressBarNumTicks = 30
 
@@ -66,46 +64,52 @@ class S3APIWrapper(config: Properties, private val s3AsyncClient: S3AsyncClient)
         encryption: Boolean
     ) {
         require(fromLocalFolder.isDirectory) { "${fromLocalFolder.absolutePath} must be a folder!" }
-        println("Zipping into temporary zip file $temporaryZipFile)...")
-        FolderZipper.pack(sourceDir = fromLocalFolder, zipFile = temporaryZipFile.toFile(), dirFilter = dirFilter)
-        uploadFile(
-            sourceFile = temporaryZipFile,
-            targetKey = targetKey,
-            storageClass = storageClass,
-            encryption = encryption
-        )
-        Files.delete(temporaryZipFile) // clean up temporary zip file
+        val temporaryZipFile = Files.createTempFile("s3backup-zip-", ".zip")
+        try {
+            println("Zipping into temporary zip file $temporaryZipFile)...")
+            FolderZipper.pack(sourceDir = fromLocalFolder, zipFile = temporaryZipFile.toFile(), dirFilter = dirFilter)
+            uploadFile(
+                sourceFile = temporaryZipFile,
+                targetKey = targetKey,
+                storageClass = storageClass,
+                encryption = encryption
+            )
+        } finally {
+            Files.deleteIfExists(temporaryZipFile) // clean up temporary zip file
+        }
     }
 
     fun downloadFile(sourceKey: String, targetFile: Path) {
         println("Downloading...")
         println(" -- Source: S3 bucket [$bucketName], key [$sourceKey]")
+        val temporaryEncryptedFile = Files.createTempFile("s3backup-download-", ".tmp")
         println(" -- Destination: local file [${temporaryEncryptedFile}]")
-        val downloadFileRequest = DownloadFileRequest.builder()
-            .getObjectRequest { b: GetObjectRequest.Builder ->
-                b.bucket(bucketName).key(sourceKey)
-            }
-            .addTransferListener(LoggingTransferListener.create(progressBarNumTicks))
-            .destination(temporaryEncryptedFile)
-            .build()
-        val downloadFile = transferManager.downloadFile(downloadFileRequest)
-        val downloadResult = downloadFile.completionFuture().join()
+        try {
+            val downloadFileRequest = DownloadFileRequest.builder()
+                .getObjectRequest { b: GetObjectRequest.Builder -> b.bucket(bucketName).key(sourceKey) }
+                .addTransferListener(LoggingTransferListener.create(progressBarNumTicks))
+                .destination(temporaryEncryptedFile)
+                .build()
+            val downloadFile = transferManager.downloadFile(downloadFileRequest)
+            val downloadResult = downloadFile.completionFuture().join()
 
-        val isEncrypted = downloadResult.response().metadata()[TagNames.encryption]!!.toBooleanStrict()
-        Files.newInputStream(temporaryEncryptedFile).use { inStream ->
-            if (isEncrypted) {
-                println(" -- File is encrypted. Decrypting to $targetFile...")
-                val crypto = AWSEncryptionSDK.makeCryptoObject()
-                val masterKey = AWSEncryptionSDK.makeKeyRingFromKeyFile(masterKeyFile)
-                AWSEncryptionSDK.decryptFromStream(
-                    crypto = crypto, inStream = inStream, outFile = targetFile, masterKey = masterKey
-                )
-                println("Decryption done, deleting temp file.")
-                Files.delete(temporaryEncryptedFile) // Clean up temporary encrypted file
-            } else {
-                println("-- File is not encrypted. Moving it to $targetFile...")
-                Files.move(temporaryEncryptedFile, targetFile)
+            val isEncrypted = downloadResult.response().metadata()[TagNames.encryption]!!.toBooleanStrict()
+            Files.newInputStream(temporaryEncryptedFile).use { inStream ->
+                if (isEncrypted) {
+                    println(" -- File is encrypted. Decrypting to $targetFile...")
+                    val crypto = AWSEncryptionSDK.makeCryptoObject()
+                    val masterKey = AWSEncryptionSDK.makeKeyRingFromKeyFile(masterKeyFile)
+                    AWSEncryptionSDK.decryptFromStream(
+                        crypto = crypto, inStream = inStream, outFile = targetFile, masterKey = masterKey
+                    )
+                    println("Decryption done, deleting temp file.")
+                } else {
+                    println("-- File is not encrypted. Moving it to $targetFile...")
+                    Files.move(temporaryEncryptedFile, targetFile)
+                }
             }
+        } finally {
+            Files.deleteIfExists(temporaryEncryptedFile) // Clean up temporary encrypted file
         }
     }
 
@@ -129,17 +133,21 @@ class S3APIWrapper(config: Properties, private val s3AsyncClient: S3AsyncClient)
         )
         val metadata = mapOf(TagNames.encryption to encryption.toString())
         if (encryption) {
-            println(" -- Encrypting to ${temporaryEncryptedFile}...") // because we need to know the size of the ciphertext in advance...
-            val crypto = AWSEncryptionSDK.makeCryptoObject()
-            val masterKey = AWSEncryptionSDK.makeKeyRingFromKeyFile(masterKeyFile)
-            AWSEncryptionSDK.encryptToFile(crypto, sourceFile, temporaryEncryptedFile, masterKey)
-            uploadFileCore(
-                sourceFile = temporaryEncryptedFile,
-                targetKey = targetKey,
-                storageClass = storageClass,
-                metadata = metadata
-            )
-            Files.delete(temporaryEncryptedFile) // Clean up temporary encrypted file
+            val temporaryEncryptedFile = Files.createTempFile("s3backup-encrypted-", ".tmp")
+            try {
+                println(" -- Encrypting to ${temporaryEncryptedFile}...") // because we need to know the size of the ciphertext in advance...
+                val crypto = AWSEncryptionSDK.makeCryptoObject()
+                val masterKey = AWSEncryptionSDK.makeKeyRingFromKeyFile(masterKeyFile)
+                AWSEncryptionSDK.encryptToFile(crypto, sourceFile, temporaryEncryptedFile, masterKey)
+                uploadFileCore(
+                    sourceFile = temporaryEncryptedFile,
+                    targetKey = targetKey,
+                    storageClass = storageClass,
+                    metadata = metadata
+                )
+            } finally {
+                Files.deleteIfExists(temporaryEncryptedFile) // Clean up temporary encrypted file
+            }
         } else {
             println(" -- NOT encrypting")
             uploadFileCore(
