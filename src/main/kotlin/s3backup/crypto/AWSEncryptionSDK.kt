@@ -89,8 +89,12 @@ object AWSEncryptionSDK {
         keyFilePath.writeBytes(rawKey)
     }
 
-    fun loadKey(keyfile: Path): IKeyring {
+    fun makeKeyRingFromKeyFile(keyfile: Path): IKeyring {
         val rawKey = keyfile.readBytes()
+        return makeKeyRingFromRawKey(rawKey)
+    }
+
+    fun makeKeyRingFromRawKey(rawKey: ByteArray): IKeyring {
         val secretkey: SecretKey = SecretKeySpec(rawKey, "AES")
         val materialProviders = MaterialProviders.builder()
             .MaterialProvidersConfig(MaterialProvidersConfig.builder().build())

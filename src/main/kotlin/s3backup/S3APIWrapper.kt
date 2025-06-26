@@ -96,7 +96,7 @@ class S3APIWrapper(config: Properties, private val s3AsyncClient: S3AsyncClient)
             if (isEncrypted) {
                 println(" -- File is encrypted. Decrypting to $targetFile...")
                 val crypto = AWSEncryptionSDK.makeCryptoObject()
-                val masterKey = AWSEncryptionSDK.loadKey(masterKeyFile)
+                val masterKey = AWSEncryptionSDK.makeKeyRingFromKeyFile(masterKeyFile)
                 AWSEncryptionSDK.decryptFromStream(
                     crypto = crypto, inStream = inStream, outFile = targetFile, masterKey = masterKey
                 )
@@ -131,7 +131,7 @@ class S3APIWrapper(config: Properties, private val s3AsyncClient: S3AsyncClient)
         if (encryption) {
             println(" -- Encrypting to ${temporaryEncryptedFile}...") // because we need to know the size of the ciphertext in advance...
             val crypto = AWSEncryptionSDK.makeCryptoObject()
-            val masterKey = AWSEncryptionSDK.loadKey(masterKeyFile)
+            val masterKey = AWSEncryptionSDK.makeKeyRingFromKeyFile(masterKeyFile)
             AWSEncryptionSDK.encryptToFile(crypto, sourceFile, temporaryEncryptedFile, masterKey)
             uploadFileCore(
                 sourceFile = temporaryEncryptedFile,

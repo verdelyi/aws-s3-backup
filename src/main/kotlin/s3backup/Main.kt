@@ -8,37 +8,6 @@ import java.util.*
 
 // TODO object metadata: encrypt SHA256 hash? (or get rid of the hash...)
 object Main {
-
-    /*fun test() {
-        val dc = DownloadCommand(
-            config = config,
-            s3SourceKey = "localserver/localserver-20220118-0000-inc-based-on-20220117-0000-inc-dev.tar.zst",
-            targetDir = "/home/verdelyi/Desktop/"
-        )
-        dc.run()
-    }*/
-
-    /*fun enctest() {
-        val srcFile = Paths.get("/home/verdelyi/Desktop/bigfile.zip")
-        val crypto = AWSEncryptionSDK.makeCryptoObject()
-        val masterKeyFile = Paths.get(config.getProperty("config.encryptionKeyFile"))
-        val masterKey = AWSEncryptionSDK.loadKey(masterKeyFile)
-        println("===================== Encryption test ========================")
-        AWSEncryptionSDK.encryptToFile(
-            crypto = crypto,
-            inFile = srcFile,
-            outFile = Paths.get("tmp.encrypted"),
-            masterKey = masterKey
-        )
-        println("===================== Decryption test ========================")
-        AWSEncryptionSDK.decryptFromFile(
-            crypto = crypto,
-            inFile = Paths.get("tmp.encrypted"),
-            outFile = Paths.get("tmp.decrypted"),
-            masterKey = masterKey
-        )
-    }*/
-
     @JvmStatic
     fun main(args: Array<String>) {
         if (args.isEmpty()) {
@@ -53,7 +22,7 @@ object Main {
         val config: Properties = ConfigLoader.load(configFilePath)
 
         // Fixed 2nd param: command
-        val commandStr =  args[1].uppercase(Locale.US)
+        val commandStr = args[1].uppercase(Locale.US)
 
         // Other params are command-dependent
         val command: Runnable? = when (commandStr) {
@@ -88,6 +57,8 @@ object Main {
             )
 
             "DOWNLOAD" -> DownloadCommand(config = config, s3SourceKey = args[2], targetDir = args[3])
+
+            "SELFTEST" -> SelfTest()
             else -> {
                 println("Unknown command $commandStr")
                 null
