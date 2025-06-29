@@ -23,7 +23,7 @@ import kotlin.math.roundToInt
 
 class S3APIWrapper(config: Properties, private val s3AsyncClient: S3AsyncClient) {
     private val bucketName: String = config.getProperty("aws.s3.bucketName")
-    private val masterKeyFile = Paths.get(config.getProperty("config.encryptionKeyFile"))
+    private val masterKeyFile = Paths.get(config.getProperty("config.encryptionKeyFile") ?: error("Property 'config.encryptionKeyFile' not set"))
     private val progressBarNumTicks = 30
 
     object TagNames {
@@ -80,10 +80,8 @@ class S3APIWrapper(config: Properties, private val s3AsyncClient: S3AsyncClient)
     }
 
     fun downloadFile(sourceKey: String, targetFile: Path) {
-        println("Downloading...")
-        println(" -- Source: S3 bucket [$bucketName], key [$sourceKey]")
         val temporaryEncryptedFile = Files.createTempFile("s3backup-download-", ".tmp")
-        println(" -- Destination: local file [${temporaryEncryptedFile}]")
+        println("Downloading S3 bucket '$bucketName', key '$sourceKey' to local file '${temporaryEncryptedFile}'...")
         try {
             val downloadFileRequest = DownloadFileRequest.builder()
                 .getObjectRequest { b: GetObjectRequest.Builder -> b.bucket(bucketName).key(sourceKey) }
