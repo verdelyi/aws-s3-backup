@@ -1,5 +1,6 @@
 package s3backup
 
+import Utils
 import s3backup.crypto.AWSEncryptionSDK
 import s3backup.util.FolderZipper
 import software.amazon.awssdk.core.async.AsyncRequestBody
@@ -10,20 +11,19 @@ import software.amazon.awssdk.transfer.s3.S3TransferManager
 import software.amazon.awssdk.transfer.s3.model.DownloadFileRequest
 import software.amazon.awssdk.transfer.s3.model.UploadFileRequest
 import software.amazon.awssdk.transfer.s3.progress.LoggingTransferListener
-import java.io.*
+import java.io.File
+import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
-import java.nio.file.Paths
-import java.util.*
 import java.util.concurrent.CompletionException
 import kotlin.io.path.fileSize
 import kotlin.io.path.isRegularFile
 import kotlin.math.roundToInt
 
 
-class S3APIWrapper(private val config: Properties, private val s3AsyncClient: S3AsyncClient) {
-    private val bucketName: String = config.getProperty("aws.s3.bucketName")
-    private val masterKeyFile = Paths.get(config.getProperty("config.encryptionKeyFile") ?: error("Property 'config.encryptionKeyFile' not set"))
+class S3APIWrapper(private val s3AsyncClient: S3AsyncClient) {
+    private val bucketName: String = ConfigLoader.getBucketName()
+    private val masterKeyFile = ConfigLoader.getEncryptionKeyFile()
     private val progressBarNumTicks = 30
 
     object TagNames {
@@ -64,7 +64,7 @@ class S3APIWrapper(private val config: Properties, private val s3AsyncClient: S3
         encryption: Boolean
     ) {
         require(fromLocalFolder.isDirectory) { "${fromLocalFolder.absolutePath} must be a folder!" }
-        val temporaryZipFile = Utils.createTempFile(config, "s3backup-zip-", ".zip")
+        val temporaryZipFile = Utils.createTempFile("s3backup-zip-", ".zip")
         try {
             println("Zipping into temporary zip file $temporaryZipFile)...")
             FolderZipper.pack(sourceDir = fromLocalFolder, zipFile = temporaryZipFile.toFile(), dirFilter = dirFilter)
@@ -80,7 +80,7 @@ class S3APIWrapper(private val config: Properties, private val s3AsyncClient: S3
     }
 
     fun downloadFile(sourceKey: String, targetFile: Path) {
-        val temporaryEncryptedFile = Utils.createTempFile(config, "s3backup-download-", ".tmp")
+        val temporaryEncryptedFile = Utils.createTempFile("s3backup-download-", ".tmp")
         println("Downloading S3 bucket '$bucketName', key '$sourceKey' to local file '${temporaryEncryptedFile}'...")
         try {
             val downloadFileRequest = DownloadFileRequest.builder()
@@ -131,7 +131,7 @@ class S3APIWrapper(private val config: Properties, private val s3AsyncClient: S3
         )
         val metadata = mapOf(TagNames.encryption to encryption.toString())
         if (encryption) {
-            val temporaryEncryptedFile = Utils.createTempFile(config, "s3backup-encrypted-", ".tmp")
+            val temporaryEncryptedFile = Utils.createTempFile("s3backup-encrypted-", ".tmp")
             try {
                 println(" -- Encrypting to ${temporaryEncryptedFile}...") // because we need to know the size of the ciphertext in advance...
                 val crypto = AWSEncryptionSDK.makeCryptoObject()

@@ -1,10 +1,9 @@
+import s3backup.ConfigLoader
 import java.math.BigInteger
 import java.nio.file.Files
 import java.nio.file.Path
-import java.nio.file.Paths
 import java.security.DigestInputStream
 import java.security.MessageDigest
-import java.util.*
 import kotlin.math.pow
 
 object Utils {
@@ -34,10 +33,10 @@ object Utils {
         }
     }
 
-    fun createTempFile(config: Properties, prefix: String, suffix: String): Path {
-        val tmpDir = config.getProperty("config.tmpDir")
+    fun createTempFile(prefix: String, suffix: String): Path {
+        val tmpDir = ConfigLoader.getTmpDir()
         return if (tmpDir != null) {
-            Files.createTempFile(Paths.get(tmpDir), prefix, suffix)
+            Files.createTempFile(tmpDir, prefix, suffix)
         } else {
             Files.createTempFile(prefix, suffix)
         }

@@ -9,16 +9,12 @@ import java.nio.file.Paths
 import java.util.*
 
 class DownloadCommand(
-    private val config: Properties,
     private val s3SourceKey: String,
     private val targetDir: String
 ) : Runnable {
     override fun run() {
         try {
-            val s3 = S3APIWrapper(
-                config = config,
-                s3AsyncClient = S3ClientFactory.makePlaintextClientWithCredentials(config)
-            )
+            val s3 = S3APIWrapper(S3ClientFactory.makePlaintextClientWithCredentials())
             val targetDirPath = Paths.get(targetDir)
             Files.createDirectories(targetDirPath)
             s3.downloadFile(

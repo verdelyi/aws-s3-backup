@@ -1,22 +1,21 @@
 package s3backup.commands
 
-import software.amazon.awssdk.awscore.exception.AwsServiceException
+import Utils
 import s3backup.S3APIWrapper
 import s3backup.S3ClientFactory
+import software.amazon.awssdk.awscore.exception.AwsServiceException
 import software.amazon.awssdk.core.exception.SdkClientException
 import software.amazon.awssdk.services.s3.model.StorageClass
 import java.io.File
 import java.nio.file.Paths
-import java.util.*
 
 class UploadBatchCommand(
-    private val config: Properties,
     private val backupItemsFile: File,
     private val storageClass: StorageClass
 ) : Runnable {
     override fun run() {
         try {
-            val s3 = S3APIWrapper(config, S3ClientFactory.makePlaintextClientWithCredentials(config))
+            val s3 = S3APIWrapper(S3ClientFactory.makePlaintextClientWithCredentials())
             backupItemsFile.useLines { lines ->
                 lines.forEach { line ->
                     if (line.startsWith("#") || line.isEmpty()) return@forEach

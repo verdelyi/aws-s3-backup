@@ -7,7 +7,6 @@ import java.nio.file.Path
 import java.util.*
 
 class UploadFile(
-    private val config: Properties,
     private val file: Path,
     private val targetKey: String,
     private val s3Client: S3AsyncClient,
@@ -15,7 +14,7 @@ class UploadFile(
     private val encryption: Boolean
 ) : Runnable {
     override fun run() {
-        val s3 = S3APIWrapper(config, s3Client)
+        val s3 = S3APIWrapper(s3Client)
         s3.uploadFile(sourceFile = file, targetKey = targetKey, storageClass = storageClass, encryption = encryption)
     }
 }
