@@ -21,7 +21,7 @@ import kotlin.io.path.isRegularFile
 import kotlin.math.roundToInt
 
 
-class S3APIWrapper(config: Properties, private val s3AsyncClient: S3AsyncClient) {
+class S3APIWrapper(private val config: Properties, private val s3AsyncClient: S3AsyncClient) {
     private val bucketName: String = config.getProperty("aws.s3.bucketName")
     private val masterKeyFile = Paths.get(config.getProperty("config.encryptionKeyFile") ?: error("Property 'config.encryptionKeyFile' not set"))
     private val progressBarNumTicks = 30
@@ -64,7 +64,7 @@ class S3APIWrapper(config: Properties, private val s3AsyncClient: S3AsyncClient)
         encryption: Boolean
     ) {
         require(fromLocalFolder.isDirectory) { "${fromLocalFolder.absolutePath} must be a folder!" }
-        val temporaryZipFile = Files.createTempFile("s3backup-zip-", ".zip")
+        val temporaryZipFile = Utils.createTempFile(config, "s3backup-zip-", ".zip")
         try {
             println("Zipping into temporary zip file $temporaryZipFile)...")
             FolderZipper.pack(sourceDir = fromLocalFolder, zipFile = temporaryZipFile.toFile(), dirFilter = dirFilter)
@@ -80,7 +80,7 @@ class S3APIWrapper(config: Properties, private val s3AsyncClient: S3AsyncClient)
     }
 
     fun downloadFile(sourceKey: String, targetFile: Path) {
-        val temporaryEncryptedFile = Files.createTempFile("s3backup-download-", ".tmp")
+        val temporaryEncryptedFile = Utils.createTempFile(config, "s3backup-download-", ".tmp")
         println("Downloading S3 bucket '$bucketName', key '$sourceKey' to local file '${temporaryEncryptedFile}'...")
         try {
             val downloadFileRequest = DownloadFileRequest.builder()
@@ -131,7 +131,7 @@ class S3APIWrapper(config: Properties, private val s3AsyncClient: S3AsyncClient)
         )
         val metadata = mapOf(TagNames.encryption to encryption.toString())
         if (encryption) {
-            val temporaryEncryptedFile = Files.createTempFile("s3backup-encrypted-", ".tmp")
+            val temporaryEncryptedFile = Utils.createTempFile(config, "s3backup-encrypted-", ".tmp")
             try {
                 println(" -- Encrypting to ${temporaryEncryptedFile}...") // because we need to know the size of the ciphertext in advance...
                 val crypto = AWSEncryptionSDK.makeCryptoObject()

@@ -16,6 +16,7 @@ aws.accessKey=.............. (AWS credentials)
 aws.secretKey=................ (AWS credentials)
 aws.s3.bucketName=............. (AWS S3 bucket)
 config.encryptionKeyFile=.......... (path to encryption key file)
+config.tmpDir=............. (optional - custom temp directory for temporary files)
 ```
 
 The encryption key file holds the "password" (ideally a random byte array).
