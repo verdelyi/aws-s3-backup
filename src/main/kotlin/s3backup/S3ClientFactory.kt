@@ -19,16 +19,16 @@ object S3ClientFactory {
         return StaticCredentialsProvider.create(awsCreds)
     }
 
-    fun makePlaintextClientWithCredentials(): S3AsyncClient = S3AsyncClient.crtBuilder()
-        .credentialsProvider(makeCredentials())
-        .region(clientRegion)
-        .targetThroughputInGbps(20.0)
-        .minimumPartSizeInBytes(8 * MB)
-        .build()
-
-    fun makePlaintextClientWithoutCredentials(): S3AsyncClient = S3AsyncClient.crtBuilder()
-        .region(clientRegion)
-        .targetThroughputInGbps(20.0)
-        .minimumPartSizeInBytes(8 * MB)
-        .build()
+    fun makePlaintextClient(useCredentials: Boolean): S3AsyncClient {
+        return S3AsyncClient.crtBuilder()
+            .apply {
+                if (useCredentials) {
+                    credentialsProvider(makeCredentials())
+                }
+            }
+            .region(clientRegion)
+            .targetThroughputInGbps(20.0)
+            .minimumPartSizeInBytes(8 * MB)
+            .build()
+    }
 }

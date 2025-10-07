@@ -3,6 +3,7 @@ package s3backup
 import Utils
 import s3backup.crypto.AWSEncryptionSDK
 import s3backup.util.FolderZipper
+import s3backup.util.SimpleProgressListener
 import software.amazon.awssdk.core.async.AsyncRequestBody
 import software.amazon.awssdk.services.s3.S3AsyncClient
 import software.amazon.awssdk.services.s3.model.*
@@ -10,7 +11,6 @@ import software.amazon.awssdk.services.s3.paginators.ListObjectsV2Publisher
 import software.amazon.awssdk.transfer.s3.S3TransferManager
 import software.amazon.awssdk.transfer.s3.model.DownloadFileRequest
 import software.amazon.awssdk.transfer.s3.model.UploadFileRequest
-import software.amazon.awssdk.transfer.s3.progress.LoggingTransferListener
 import java.io.File
 import java.io.IOException
 import java.nio.file.Files
@@ -18,13 +18,11 @@ import java.nio.file.Path
 import java.util.concurrent.CompletionException
 import kotlin.io.path.fileSize
 import kotlin.io.path.isRegularFile
-import kotlin.math.roundToInt
 
 
 class S3APIWrapper(private val s3AsyncClient: S3AsyncClient) {
     private val bucketName: String = ConfigLoader.getBucketName()
     private val masterKeyFile = ConfigLoader.getEncryptionKeyFile()
-    private val progressBarNumTicks = 30
 
     object TagNames {
         const val encryption = "client-side-encryption"
@@ -85,13 +83,20 @@ class S3APIWrapper(private val s3AsyncClient: S3AsyncClient) {
         try {
             val downloadFileRequest = DownloadFileRequest.builder()
                 .getObjectRequest { b: GetObjectRequest.Builder -> b.bucket(bucketName).key(sourceKey) }
-                .addTransferListener(LoggingTransferListener.create(progressBarNumTicks))
+                .addTransferListener(SimpleProgressListener())
                 .destination(temporaryEncryptedFile)
                 .build()
             val downloadFile = transferManager.downloadFile(downloadFileRequest)
             val downloadResult = downloadFile.completionFuture().join()
 
-            val isEncrypted = downloadResult.response().metadata()[TagNames.encryption]!!.toBooleanStrict()
+            val isEncryptedMD = downloadResult.response().metadata()[TagNames.encryption]
+            val isEncrypted = if (isEncryptedMD != null) {
+                isEncryptedMD.toBooleanStrict()
+            } else {
+                println("Encryption metadata not found, assuming that the file is encrypted")
+                true
+            }
+
             Files.newInputStream(temporaryEncryptedFile).use { inStream ->
                 if (isEncrypted) {
                     println(" -- File is encrypted. Decrypting to $targetFile...")
@@ -163,7 +168,7 @@ class S3APIWrapper(private val s3AsyncClient: S3AsyncClient) {
                     .metadata(metadata)
                     .checksumAlgorithm(ChecksumAlgorithm.SHA256)
             }
-            .addTransferListener(LoggingTransferListener.create(progressBarNumTicks))
+            .addTransferListener(SimpleProgressListener())
             .source(sourceFile)
             .build()
         val fileUpload = transferManager.uploadFile(uploadFileRequest)
@@ -183,22 +188,15 @@ class S3APIWrapper(private val s3AsyncClient: S3AsyncClient) {
 
     // Pagination needed to get more than 1000 objects.
     // See https://docs.aws.amazon.com/sdk-for-java/latest/developer-guide/pagination.html
-    fun listObjects(prefix: String, format: String) {
+    fun getObjectKeys(prefix: String): List<S3Object> {
         val listObjects = ListObjectsV2Request
             .builder()
             .bucket(bucketName)
             .prefix(prefix)
             .build()
         val res: ListObjectsV2Publisher = s3AsyncClient.listObjectsV2Paginator(listObjects)
-        var count = 0
-        res.contents().subscribe {
-            when (format) {
-                "NICE" -> println("Key: ${it.key()} (${(it.size() / 1e6).roundToInt()} MB, Storage class: ${it.storageClassAsString()})")
-                "SIMPLE" -> println(it.key())
-                else -> error("unknown format $format")
-            }
-            count++
-        }.get()
-        println("Total: ${count} objects found")
+        val objects = mutableListOf<S3Object>()
+        res.contents().subscribe { objects.add(it) }.get()
+        return objects
     }
 }

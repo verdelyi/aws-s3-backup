@@ -1,12 +1,13 @@
 package s3backup
 
 import s3backup.commands.*
+import software.amazon.awssdk.awscore.exception.AwsServiceException
+import software.amazon.awssdk.core.exception.SdkClientException
 import software.amazon.awssdk.services.s3.model.StorageClass
 import java.io.File
 import java.nio.file.Paths
 import java.util.*
 
-// TODO object metadata: encrypt SHA256 hash? (or get rid of the hash...)
 object Main {
     @JvmStatic
     fun main(args: Array<String>) {
@@ -32,7 +33,7 @@ object Main {
             "UPLOADFILE-ENCRYPT" -> UploadFile(
                 file = Paths.get(args[2]),
                 targetKey = args[3],
-                s3Client = S3ClientFactory.makePlaintextClientWithCredentials(), // use encryption SDK separately.
+                s3Client = S3ClientFactory.makePlaintextClient(useCredentials = true), // use encryption SDK separately.
                 storageClass = storageClass,
                 encryption = true
             )
@@ -40,7 +41,7 @@ object Main {
             "UPLOADFILE-PLAINTEXT" -> UploadFile(
                 file = Paths.get(args[2]),
                 targetKey = args[3],
-                s3Client = S3ClientFactory.makePlaintextClientWithCredentials(),
+                s3Client = S3ClientFactory.makePlaintextClient(useCredentials = true),
                 storageClass = storageClass,
                 encryption = false
             )
@@ -48,19 +49,26 @@ object Main {
             "UPLOADFILE-PLAINTEXT-NOCREDS" -> UploadFile(
                 file = Paths.get(args[2]),
                 targetKey = args[3],
-                s3Client = S3ClientFactory.makePlaintextClientWithoutCredentials(),
+                s3Client = S3ClientFactory.makePlaintextClient(useCredentials = false),
                 storageClass = storageClass,
                 encryption = false
             )
 
             "DOWNLOAD" -> DownloadCommand(s3SourceKey = args[2], targetDir = args[3])
 
-            "SELFTEST" -> SelfTest()
             else -> {
                 println("Unknown command $commandStr")
                 null
             }
         }
-        command?.run()
+        try {
+            command?.run()
+        } catch (e: AwsServiceException) {
+            // The call was transmitted successfully, but Amazon S3 couldn't process it, so it returned an error response.
+            e.printStackTrace()
+        } catch (e: SdkClientException) {
+            // Amazon S3 couldn't be contacted for a response, or the client couldn't parse the response from Amazon S3.
+            e.printStackTrace()
+        }
     }
 }

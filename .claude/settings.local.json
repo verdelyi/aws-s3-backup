@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(xxd:*)",
+      "WebFetch(domain:docs.junit.org)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
