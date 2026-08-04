@@ -13,8 +13,10 @@ class UploadBatchCommand(
 ) : Runnable {
     override fun run() {
         val s3 = S3APIWrapper(S3ClientFactory.makePlaintextClient(useCredentials = true))
-        batchItems.forEach { item ->
-            println("Processing batch item: $item")
+        val total = batchItems.size
+        batchItems.forEachIndexed { index, item ->
+            println()
+            println("[${index + 1}/$total] ${item.command}: ${item.localPath} -> ${item.remoteAWSPath}")
             when (item.command) {
                 "UPLOADFOLDERZIP" -> s3.uploadFolderAsZip(
                     fromLocalFolder = File(item.localPath),
@@ -40,6 +42,7 @@ class UploadBatchCommand(
                 else -> throw UnsupportedOperationException("command ${item.command} not implemented")
             }
         }
-        println("=== Uploads completed ===")
+        println()
+        println("=== Uploads completed ($total item${if (total == 1) "" else "s"}) ===")
     }
 }

@@ -1,21 +1,23 @@
-import s3backup.ConfigLoader
 import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.Paths
 import kotlin.math.pow
 
 object Utils {
+
+    private val workDir: Path by lazy {
+        val dir = Paths.get(System.getProperty("user.home"), "tmp-${System.nanoTime()}")
+        Files.createDirectories(dir)
+        Runtime.getRuntime().addShutdownHook(Thread { dir.toFile().deleteRecursively() })
+        dir
+    }
 
     fun bytesToGigabytes(bytes: Long): Float {
         return bytes.toFloat() / 1024f.pow(3)
     }
 
     fun createTempFile(prefix: String, suffix: String): Path {
-        val tmpDir = ConfigLoader.getTmpDir()
-        return if (tmpDir != null) {
-            Files.createTempFile(tmpDir, prefix, suffix)
-        } else {
-            Files.createTempFile(prefix, suffix)
-        }
+        return Files.createTempFile(workDir, prefix, suffix)
     }
 
     fun bytesToHex(bytes: ByteArray): String {

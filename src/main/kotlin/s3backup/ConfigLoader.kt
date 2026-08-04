@@ -4,7 +4,6 @@ import Utils
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import java.nio.file.Files
-import java.nio.file.Path
 import java.nio.file.Paths
 
 @Serializable
@@ -26,7 +25,6 @@ data class BatchItem(
 data class Config(
     val aws: AwsConfig,
     val encryptionKeyHex: String,
-    val tmpDir: String? = null,
     val batchItems: List<BatchItem> = emptyList()
 )
 
@@ -43,6 +41,5 @@ object ConfigLoader {
     fun getAwsSecretKey(): String = config.aws.secretKey ?: error("'aws.secretKey' not set in config")
     fun getBucketName(): String = config.aws.bucketName
     fun getEncryptionKeyBytes(): ByteArray = Utils.hexToBytes(config.encryptionKeyHex)
-    fun getTmpDir(): Path? = config.tmpDir?.let { Paths.get(it) }
     fun getBatchItems(): List<BatchItem> = config.batchItems
 }

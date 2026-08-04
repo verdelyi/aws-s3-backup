@@ -64,7 +64,7 @@ class S3APIWrapper(private val s3AsyncClient: S3AsyncClient) {
         require(fromLocalFolder.isDirectory) { "${fromLocalFolder.absolutePath} must be a folder!" }
         val temporaryZipFile = Utils.createTempFile("s3backup-zip-", ".zip")
         try {
-            println("Zipping into temporary zip file $temporaryZipFile)...")
+            println("  Zipping folder into temporary file: $temporaryZipFile")
             FolderZipper.pack(sourceDir = fromLocalFolder, zipFile = temporaryZipFile.toFile(), dirFilter = dirFilter)
             uploadFile(
                 sourceFile = temporaryZipFile,
@@ -121,24 +121,23 @@ class S3APIWrapper(private val s3AsyncClient: S3AsyncClient) {
         try {
             val objectRequest = HeadObjectRequest.builder().key(targetKey).bucket(bucketName).build()
             val objectHead: HeadObjectResponse = s3AsyncClient.headObject(objectRequest).join()
-            println("Object '$targetKey' already exists (Last modified: ${objectHead.lastModified()}) -- will overwrite")
+            println("  Overwriting existing object (last modified: ${objectHead.lastModified()})")
         } catch (e: CompletionException) {
             if (e.cause is NoSuchKeyException) {
-                val ce = e.cause as NoSuchKeyException
-                println("Object does not exist yet -- " + ce.awsErrorDetails().errorMessage())
+                println("  Object does not exist yet, creating new")
             } else {
                 throw e
             }
         }
-        println(
-            "Uploading $sourceFile (${String.format("%.1f", sourceFile.fileSize() / 1_000_000.0)} MB) " +
-                    "to S3->$bucketName->$targetKey (S3 Storage class: ${storageClass.name}, client-side encryption: $encryption)"
-        )
+        val sizeMB = String.format("%.1f", sourceFile.fileSize() / 1_000_000.0)
+        println("  Uploading: $sourceFile ($sizeMB MB)")
+        println("  Destination: s3://$bucketName/$targetKey (class: ${storageClass.name}, encrypted: $encryption)")
         val metadata = mapOf(TagNames.encryption to encryption.toString())
         if (encryption) {
             val temporaryEncryptedFile = Utils.createTempFile("s3backup-encrypted-", ".tmp")
             try {
-                println(" -- Encrypting to ${temporaryEncryptedFile}...") // because we need to know the size of the ciphertext in advance...
+                // need the ciphertext file to know its size in advance
+                println("  Encrypting to temporary file: $temporaryEncryptedFile")
                 val crypto = AWSEncryptionSDK.makeCryptoObject()
                 val masterKey = AWSEncryptionSDK.makeKeyRingFromRawKey(encryptionKeyBytes)
                 AWSEncryptionSDK.encryptToFile(crypto, sourceFile, temporaryEncryptedFile, masterKey)
@@ -152,7 +151,6 @@ class S3APIWrapper(private val s3AsyncClient: S3AsyncClient) {
                 Files.deleteIfExists(temporaryEncryptedFile) // Clean up temporary encrypted file
             }
         } else {
-            println(" -- NOT encrypting")
             uploadFileCore(
                 sourceFile = sourceFile, targetKey = targetKey, storageClass = storageClass, metadata = metadata
             )
@@ -173,7 +171,7 @@ class S3APIWrapper(private val s3AsyncClient: S3AsyncClient) {
             .build()
         val fileUpload = transferManager.uploadFile(uploadFileRequest)
         val uploadResult = fileUpload.completionFuture().join()
-        println("Upload done, received etag: ${uploadResult.response().eTag()}")
+        println("  Done (etag: ${uploadResult.response().eTag()})")
     }
 
     @Throws(IOException::class)
