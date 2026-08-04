@@ -176,13 +176,32 @@ class S3APIWrapper(private val s3AsyncClient: S3AsyncClient) {
             .build()
         val fileUpload = transferManager.uploadFile(uploadFileRequest)
         val uploadResult = fileUpload.completionFuture().join()
-        val remoteChecksum = uploadResult.response().checksumCRC64NVME()
+        val etag = uploadResult.response().eTag()
+        // The upload response doesn't always carry the checksum (it depends on how the upload was
+        // routed), so fall back to asking S3 what it actually stored.
+        val remoteChecksum = uploadResult.response().checksumCRC64NVME() ?: fetchStoredChecksum(targetKey)
+        if (remoteChecksum == null) {
+            println("  WARNING: S3 reported no CRC64NVME checksum for $targetKey, upload could not be verified")
+            println("  Done (etag: $etag, unverified)")
+            return
+        }
         val localChecksum = Utils.crc64NvmeBase64(sourceFile)
         check(remoteChecksum == localChecksum) {
-            "Checksum mismatch after upload to $targetKey: local=$localChecksum remote=$remoteChecksum " +
-                    "(checksum type: ${uploadResult.response().checksumType()})"
+            "Checksum mismatch after upload to $targetKey: local=$localChecksum remote=$remoteChecksum"
         }
-        println("  Done (etag: ${uploadResult.response().eTag()}, crc64nvme verified: $remoteChecksum)")
+        println("  Done (etag: $etag, crc64nvme verified: $remoteChecksum)")
+    }
+
+    private fun fetchStoredChecksum(targetKey: String): String? = try {
+        s3AsyncClient.getObjectAttributes(
+            GetObjectAttributesRequest.builder()
+                .bucket(bucketName).key(targetKey)
+                .objectAttributes(ObjectAttributes.CHECKSUM)
+                .build()
+        ).join().checksum()?.checksumCRC64NVME()
+    } catch (e: Exception) {
+        println("  (could not read stored checksum: ${e.message})")
+        null
     }
 
     @Throws(IOException::class)

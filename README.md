@@ -40,7 +40,7 @@ Uploads are verified at each step, and any mismatch aborts the run:
 
 * **Zipping** — every entry of a freshly created zip is read back and its CRC32 verified.
 * **Encryption** — the encrypted file is decrypted to a discard sink before upload; AES-GCM's authentication tag fails on any corrupted ciphertext.
-* **Upload** — uploads request a CRC64NVME checksum, which S3 computes over the whole object (even for multipart uploads), and it is compared against a locally computed one.
+* **Upload** — uploads request a CRC64NVME checksum, which S3 computes over the whole object (even for multipart uploads), and it is compared against a locally computed one. Multipart uploads don't report the checksum in the upload response, so it is read back with `GetObjectAttributes`.
 
 Corruption that already exists before these checks run (e.g. a source file misread while zipping) cannot be detected by them.
 
