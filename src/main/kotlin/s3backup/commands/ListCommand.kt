@@ -12,6 +12,14 @@ class ListCommand(
         val s3 = S3APIWrapper(S3ClientFactory.makePlaintextClient(useCredentials = true))
         val objects = s3.getObjectKeys(prefix)
         var problems = 0
+        if (format == "CHECK") {
+            println("Checking ${if (prefix.isEmpty()) "all objects" else "objects under '$prefix'"} for:")
+            println("  - the '${S3APIWrapper.TagNames.encryption}' flag, without which a restore cannot tell")
+            println("    whether to decrypt (lost by copies that don't preserve source settings)")
+            println("  - a stored CRC64NVME checksum, recorded at upload time to verify integrity")
+            println("Object contents are not downloaded, so this does not detect damaged data.")
+            println()
+        }
         objects.forEach {
             when (format) {
                 "NICE" -> println("Key: ${it.key()} (${(it.size() / 1e6).roundToInt()} MB, Storage class: ${it.storageClassAsString()})")
