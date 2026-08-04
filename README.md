@@ -44,10 +44,10 @@ Uploads are verified at each step, and any mismatch aborts the run:
 
 Corruption that already exists before these checks run (e.g. a source file misread while zipping) cannot be detected by them.
 
-To audit what is already in S3 without downloading anything, run `scripts/run-check.sh --config <config.json> [key-prefix]` (or the `CHECK` command directly). It reports, per object, whether the encryption flag and the stored checksum survived, and exits non-zero if any object has a problem:
+To audit what is already in S3 without downloading anything, run `scripts/s3backup.sh --config <config.json> --check [key-prefix]`. It reports, per object, whether the encryption flag and the stored checksum survived, and exits non-zero if any object has a problem:
 
 ```
-scripts/run-check.sh --config config.json
+scripts/s3backup.sh --config config.json --check
 
 OK       Documents.zip (4601 MB, STANDARD_IA, encrypted=true)
 PROBLEM  photos/img1.jpg (3 MB, STANDARD, encrypted=null) -- no 'client-side-encryption' metadata (restore cannot tell if it is encrypted)
@@ -56,6 +56,19 @@ PROBLEM  photos/img1.jpg (3 MB, STANDARD, encrypted=null) -- no 'client-side-enc
 Objects lose that metadata if they are copied without their source settings — for example, changing storage class in the AWS console with anything other than "Copy source settings". Restoring an object whose flag is missing fails rather than guessing.
 
 ## How to run it locally
+
+`scripts/s3backup.sh` builds if needed and wraps the commands below:
+
+```
+scripts/s3backup.sh --config <config.json> --upload-batch
+scripts/s3backup.sh --config <config.json> --check [prefix]
+scripts/s3backup.sh --config <config.json> --list [prefix] [NICE|SIMPLE]
+scripts/s3backup.sh --config <config.json> --download <key> <dir>
+scripts/s3backup.sh --config <config.json> --delete <key>
+scripts/s3backup.sh --config <config.json> --new-key
+```
+
+Run it without arguments for the full usage text. To invoke the app directly instead:
 
 First, `cd` to the project directory.
 
