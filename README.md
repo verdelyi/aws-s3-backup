@@ -9,17 +9,28 @@ Encrypted backup & restore to Amazon AWS S3
 
 ## Example configuration file
 
-The config file should look like this:
+The config file is a single JSON file (credentials, settings, and batch items all in one place):
 
-```
-aws.accessKey=.............. (AWS credentials)
-aws.secretKey=................ (AWS credentials)
-aws.s3.bucketName=............. (AWS S3 bucket)
-config.encryptionKeyFile=.......... (path to encryption key file)
-config.tmpDir=............. (optional - custom temp directory for temporary files)
+```json
+{
+  "aws": {
+    "accessKey": ".............. (AWS credentials)",
+    "secretKey": "................ (AWS credentials)",
+    "bucketName": "............. (AWS S3 bucket)"
+  },
+  "encryptionKeyHex": ".......... (hex-encoded 32-byte AES key; run KEYGEN to generate one)",
+  "tmpDir": "............. (optional - custom temp directory for temporary files)",
+  "batchItems": [
+    { "command": "UPLOADFOLDERZIP", "localPath": "/xxxblahxxx/Documents", "remoteAWSPath": "Documents.zip", "encrypt": true },
+    { "command": "UPLOADFOLDER", "localPath": "/xxxblahxxx/Photos", "remoteAWSPath": "photos", "encrypt": false },
+    { "command": "UPLOADFILE", "localPath": "/xxxblahxxx/notes.txt", "remoteAWSPath": "notes.txt", "encrypt": true }
+  ]
+}
 ```
 
-The encryption key file holds the "password" (ideally a random byte array).
+`batchItems` is only read by the `UPLOAD-BATCH` command; other commands ignore it. `tmpDir` and `batchItems` are optional.
+
+The encryption key is a hex-encoded 32-byte AES key, embedded directly in the config file (no separate key file). Run `KEYGEN` to print a freshly generated one to paste into `encryptionKeyHex`.
 
 ## How to run it locally
 
@@ -48,6 +59,7 @@ Option 2: Running directly via Gradle
 - `UPLOADFILE-PLAINTEXT`: Upload a file without encryption
 - `UPLOADFILE-PLAINTEXT-NOCREDS`: Upload without credentials (e.g., EC2 instances may have automatic access to S3)
 - `DOWNLOAD`: Download a file from S3
+- `DELETE`: Delete an object from S3
 
 ## Usage examples
 
@@ -57,5 +69,8 @@ Option 2: Running directly via Gradle
 * Download one file to current directory:
   `build/install/aws-s3-backup/bin/aws-s3-backup <CONFIG_FILE_PATH> download dir/remote-hello.txt .`
 
-* Batch upload:
-  `build/install/aws-s3-backup/bin/aws-s3-backup <CONFIG_FILE_PATH> UPLOAD-BATCH "G:/aws-s3-private/backup-private.conf"`
+* Batch upload (reads `batchItems` from the config file):
+  `build/install/aws-s3-backup/bin/aws-s3-backup <CONFIG_FILE_PATH> UPLOAD-BATCH`
+
+* Delete an object from S3:
+  `build/install/aws-s3-backup/bin/aws-s3-backup <CONFIG_FILE_PATH> DELETE dir/remote-hello.txt`

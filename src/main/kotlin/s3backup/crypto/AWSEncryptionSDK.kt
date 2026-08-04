@@ -17,8 +17,6 @@ import java.security.SecureRandom
 import java.util.*
 import javax.crypto.SecretKey
 import javax.crypto.spec.SecretKeySpec
-import kotlin.io.path.readBytes
-import kotlin.io.path.writeBytes
 
 /**
  * Based on this example:
@@ -82,16 +80,11 @@ object AWSEncryptionSDK {
         decryptFromStream(crypto, inStream, outFile, masterKey)
     }
 
-    fun generateKey(keyFilePath: Path) {
+    fun generateKeyBytes(): ByteArray {
         val rnd = SecureRandom()
         val rawKey = ByteArray(32)
         rnd.nextBytes(rawKey)
-        keyFilePath.writeBytes(rawKey)
-    }
-
-    fun makeKeyRingFromKeyFile(keyfile: Path): IKeyring {
-        val rawKey = keyfile.readBytes()
-        return makeKeyRingFromRawKey(rawKey)
+        return rawKey
     }
 
     fun makeKeyRingFromRawKey(rawKey: ByteArray): IKeyring {

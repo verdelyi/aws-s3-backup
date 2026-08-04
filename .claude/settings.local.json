@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(xxd:*)",
-      "WebFetch(domain:docs.junit.org)"
+      "WebFetch(domain:docs.junit.org)",
+      "Bash(./gradlew compileKotlin)",
+      "Bash(./gradlew clean *)"
     ],
     "deny": [],
     "ask": []

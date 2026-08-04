@@ -22,7 +22,7 @@ import kotlin.io.path.isRegularFile
 
 class S3APIWrapper(private val s3AsyncClient: S3AsyncClient) {
     private val bucketName: String = ConfigLoader.getBucketName()
-    private val masterKeyFile = ConfigLoader.getEncryptionKeyFile()
+    private val encryptionKeyBytes = ConfigLoader.getEncryptionKeyBytes()
 
     object TagNames {
         const val encryption = "client-side-encryption"
@@ -101,7 +101,7 @@ class S3APIWrapper(private val s3AsyncClient: S3AsyncClient) {
                 if (isEncrypted) {
                     println(" -- File is encrypted. Decrypting to $targetFile...")
                     val crypto = AWSEncryptionSDK.makeCryptoObject()
-                    val masterKey = AWSEncryptionSDK.makeKeyRingFromKeyFile(masterKeyFile)
+                    val masterKey = AWSEncryptionSDK.makeKeyRingFromRawKey(encryptionKeyBytes)
                     AWSEncryptionSDK.decryptFromStream(
                         crypto = crypto, inStream = inStream, outFile = targetFile, masterKey = masterKey
                     )
@@ -140,7 +140,7 @@ class S3APIWrapper(private val s3AsyncClient: S3AsyncClient) {
             try {
                 println(" -- Encrypting to ${temporaryEncryptedFile}...") // because we need to know the size of the ciphertext in advance...
                 val crypto = AWSEncryptionSDK.makeCryptoObject()
-                val masterKey = AWSEncryptionSDK.makeKeyRingFromKeyFile(masterKeyFile)
+                val masterKey = AWSEncryptionSDK.makeKeyRingFromRawKey(encryptionKeyBytes)
                 AWSEncryptionSDK.encryptToFile(crypto, sourceFile, temporaryEncryptedFile, masterKey)
                 uploadFileCore(
                     sourceFile = temporaryEncryptedFile,
@@ -184,6 +184,15 @@ class S3APIWrapper(private val s3AsyncClient: S3AsyncClient) {
             .storageClass(StorageClass.STANDARD)
             .build()
         s3AsyncClient.putObject(objectRequest, AsyncRequestBody.fromBytes(plaintext)).get()
+    }
+
+    fun deleteObject(key: String) {
+        val deleteRequest = DeleteObjectRequest.builder()
+            .bucket(bucketName)
+            .key(key)
+            .build()
+        s3AsyncClient.deleteObject(deleteRequest).join()
+        println("Deleted S3->$bucketName->$key")
     }
 
     // Pagination needed to get more than 1000 objects.

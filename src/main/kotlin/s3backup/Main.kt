@@ -4,7 +4,6 @@ import s3backup.commands.*
 import software.amazon.awssdk.awscore.exception.AwsServiceException
 import software.amazon.awssdk.core.exception.SdkClientException
 import software.amazon.awssdk.services.s3.model.StorageClass
-import java.io.File
 import java.nio.file.Paths
 import java.util.*
 
@@ -29,7 +28,10 @@ object Main {
         val command: Runnable? = when (commandStr) {
             "KEYGEN" -> KeygenCommand()
             "LIST" -> ListCommand(prefix = args[2], format = args[3])
-            "UPLOAD-BATCH" -> UploadBatchCommand(backupItemsFile = File(args[2]), storageClass = storageClass)
+            "UPLOAD-BATCH" -> UploadBatchCommand(
+                batchItems = ConfigLoader.getBatchItems(),
+                storageClass = storageClass
+            )
             "UPLOADFILE-ENCRYPT" -> UploadFile(
                 file = Paths.get(args[2]),
                 targetKey = args[3],
@@ -55,6 +57,8 @@ object Main {
             )
 
             "DOWNLOAD" -> DownloadCommand(s3SourceKey = args[2], targetDir = args[3])
+
+            "DELETE" -> DeleteCommand(s3Key = args[2])
 
             else -> {
                 println("Unknown command $commandStr")
