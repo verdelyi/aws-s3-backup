@@ -44,10 +44,10 @@ Uploads are verified at each step, and any mismatch aborts the run:
 
 Corruption that already exists before these checks run (e.g. a source file misread while zipping) cannot be detected by them.
 
-To audit what is already in S3 without downloading anything, run `LIST` with the `CHECK` format. It reports, per object, whether the encryption flag and the stored checksum survived, and exits non-zero if any object has a problem:
+To audit what is already in S3 without downloading anything, run `scripts/run-check.sh --config <config.json> [key-prefix]` (or `LIST <prefix> CHECK` directly). It reports, per object, whether the encryption flag and the stored checksum survived, and exits non-zero if any object has a problem:
 
 ```
-build/install/aws-s3-backup/bin/aws-s3-backup <CONFIG_FILE_PATH> LIST "" CHECK
+scripts/run-check.sh --config config.json
 
 OK       Documents.zip (4601 MB, STANDARD_IA, encrypted=true)
 PROBLEM  photos/img1.jpg (3 MB, STANDARD, encrypted=null) -- no 'client-side-encryption' metadata (restore cannot tell if it is encrypted)
