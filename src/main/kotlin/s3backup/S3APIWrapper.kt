@@ -66,6 +66,7 @@ class S3APIWrapper(private val s3AsyncClient: S3AsyncClient) {
         try {
             println("  Zipping folder into temporary file: $temporaryZipFile")
             FolderZipper.pack(sourceDir = fromLocalFolder, zipFile = temporaryZipFile.toFile(), dirFilter = dirFilter)
+            FolderZipper.validate(temporaryZipFile.toFile())
             uploadFile(
                 sourceFile = temporaryZipFile,
                 targetKey = targetKey,
@@ -141,6 +142,8 @@ class S3APIWrapper(private val s3AsyncClient: S3AsyncClient) {
                 val crypto = AWSEncryptionSDK.makeCryptoObject()
                 val masterKey = AWSEncryptionSDK.makeKeyRingFromRawKey(encryptionKeyBytes)
                 AWSEncryptionSDK.encryptToFile(crypto, sourceFile, temporaryEncryptedFile, masterKey)
+                AWSEncryptionSDK.verifyByDecrypting(crypto, temporaryEncryptedFile, masterKey)
+                println("  Verified encrypted file decrypts correctly")
                 uploadFileCore(
                     sourceFile = temporaryEncryptedFile,
                     targetKey = targetKey,
@@ -164,14 +167,22 @@ class S3APIWrapper(private val s3AsyncClient: S3AsyncClient) {
                     .key(targetKey)
                     .storageClass(storageClass)
                     .metadata(metadata)
-                    .checksumAlgorithm(ChecksumAlgorithm.SHA256)
+                    // CRC64NVME (unlike SHA256) is computed by S3 over the whole object even for
+                    // multipart uploads, so the response is directly comparable to a local digest.
+                    .checksumAlgorithm(ChecksumAlgorithm.CRC64_NVME)
             }
             .addTransferListener(SimpleProgressListener())
             .source(sourceFile)
             .build()
         val fileUpload = transferManager.uploadFile(uploadFileRequest)
         val uploadResult = fileUpload.completionFuture().join()
-        println("  Done (etag: ${uploadResult.response().eTag()})")
+        val remoteChecksum = uploadResult.response().checksumCRC64NVME()
+        val localChecksum = Utils.crc64NvmeBase64(sourceFile)
+        check(remoteChecksum == localChecksum) {
+            "Checksum mismatch after upload to $targetKey: local=$localChecksum remote=$remoteChecksum " +
+                    "(checksum type: ${uploadResult.response().checksumType()})"
+        }
+        println("  Done (etag: ${uploadResult.response().eTag()}, crc64nvme verified: $remoteChecksum)")
     }
 
     @Throws(IOException::class)

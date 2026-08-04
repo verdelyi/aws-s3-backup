@@ -3,6 +3,7 @@ package s3backup
 import Utils
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import software.amazon.awssdk.services.s3.model.StorageClass
 import java.nio.file.Files
 import java.nio.file.Paths
 
@@ -25,6 +26,7 @@ data class BatchItem(
 data class Config(
     val aws: AwsConfig,
     val encryptionKeyHex: String,
+    val storageClass: String? = null,
     val batchItems: List<BatchItem> = emptyList()
 )
 
@@ -42,4 +44,13 @@ object ConfigLoader {
     fun getBucketName(): String = config.aws.bucketName
     fun getEncryptionKeyBytes(): ByteArray = Utils.hexToBytes(config.encryptionKeyHex)
     fun getBatchItems(): List<BatchItem> = config.batchItems
+
+    fun getStorageClass(): StorageClass {
+        val name = config.storageClass ?: return StorageClass.STANDARD_IA
+        val storageClass = StorageClass.fromValue(name)
+        require(storageClass != StorageClass.UNKNOWN_TO_SDK_VERSION) {
+            "Unknown 'storageClass' in config: '$name' (known values: ${StorageClass.knownValues().joinToString()})"
+        }
+        return storageClass
+    }
 }

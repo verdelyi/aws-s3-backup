@@ -19,7 +19,7 @@ The config file is a single JSON file (credentials, settings, and batch items al
     "bucketName": "............. (AWS S3 bucket)"
   },
   "encryptionKeyHex": ".......... (hex-encoded 32-byte AES key; run KEYGEN to generate one)",
-  "tmpDir": "............. (optional - custom temp directory for temporary files)",
+  "storageClass": "............. (optional - S3 storage class, e.g. STANDARD; defaults to STANDARD_IA)",
   "batchItems": [
     { "command": "UPLOADFOLDERZIP", "localPath": "/xxxblahxxx/Documents", "remoteAWSPath": "Documents.zip", "encrypt": true },
     { "command": "UPLOADFOLDER", "localPath": "/xxxblahxxx/Photos", "remoteAWSPath": "photos", "encrypt": false },
@@ -28,9 +28,21 @@ The config file is a single JSON file (credentials, settings, and batch items al
 }
 ```
 
-`batchItems` is only read by the `UPLOAD-BATCH` command; other commands ignore it. `tmpDir` and `batchItems` are optional.
+`batchItems` is only read by the `UPLOAD-BATCH` command; other commands ignore it. `storageClass` and `batchItems` are optional.
 
 The encryption key is a hex-encoded 32-byte AES key, embedded directly in the config file (no separate key file). Run `KEYGEN` to print a freshly generated one to paste into `encryptionKeyHex`.
+
+Temporary files (zips, ciphertext) are written to a `~/tmp-<random>` directory created at startup and deleted when the program exits, including on Ctrl-C.
+
+## Integrity checking
+
+Uploads are verified at each step, and any mismatch aborts the run:
+
+* **Zipping** — every entry of a freshly created zip is read back and its CRC32 verified.
+* **Encryption** — the encrypted file is decrypted to a discard sink before upload; AES-GCM's authentication tag fails on any corrupted ciphertext.
+* **Upload** — uploads request a CRC64NVME checksum, which S3 computes over the whole object (even for multipart uploads), and it is compared against a locally computed one.
+
+Corruption that already exists before these checks run (e.g. a source file misread while zipping) cannot be detected by them.
 
 ## How to run it locally
 

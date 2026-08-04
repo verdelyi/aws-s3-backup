@@ -80,6 +80,16 @@ object AWSEncryptionSDK {
         decryptFromStream(crypto, inStream, outFile, masterKey)
     }
 
+    // Decrypts without writing plaintext anywhere -- GCM's auth tag makes this fail on any
+    // ciphertext corruption, so this catches mistakes from the encryption step without needing
+    // a round trip through S3.
+    fun verifyByDecrypting(crypto: AwsCrypto, encryptedFile: Path, masterKey: IKeyring) {
+        val decryptingStream: CryptoInputStream<JceMasterKey> =
+            crypto.createUnsignedMessageDecryptingStream(masterKey, Files.newInputStream(encryptedFile))
+        check("FileStreaming" == decryptingStream.cryptoResult.encryptionContext["Example"]) { "Bad encryption context" }
+        decryptingStream.use { Utils.drain(it) }
+    }
+
     fun generateKeyBytes(): ByteArray {
         val rnd = SecureRandom()
         val rawKey = ByteArray(32)

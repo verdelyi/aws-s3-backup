@@ -3,7 +3,6 @@ package s3backup
 import s3backup.commands.*
 import software.amazon.awssdk.awscore.exception.AwsServiceException
 import software.amazon.awssdk.core.exception.SdkClientException
-import software.amazon.awssdk.services.s3.model.StorageClass
 import java.nio.file.Paths
 import java.util.*
 
@@ -15,11 +14,10 @@ object Main {
             return
         }
 
-        val storageClass = StorageClass.STANDARD_IA
-
         // Fixed 1st param: config file
         val configFilePath = args[0]
         ConfigLoader.load(configFilePath)
+        val storageClass = ConfigLoader.getStorageClass()
 
         // Fixed 2nd param: command
         val commandStr = args[1].uppercase(Locale.US)
