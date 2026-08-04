@@ -66,7 +66,13 @@ scripts/s3backup.sh --config <config.json> --list [prefix] [NICE|SIMPLE]
 scripts/s3backup.sh --config <config.json> --download <key> <dir>
 scripts/s3backup.sh --config <config.json> --delete <key>
 scripts/s3backup.sh --config <config.json> --new-key
+scripts/s3backup.sh --config <config.json> --self-test
 ```
+
+`--self-test` uploads, verifies, downloads and deletes a few throwaway objects under a
+`selftest-<timestamp>-` prefix, covering credentials, IAM permissions, the encryption key,
+single-part and multipart uploads, and the checksum verification. It never reads or alters
+existing objects, and deletes what it created even if a step fails.
 
 Run it without arguments for the full usage text. To invoke the app directly instead:
 
