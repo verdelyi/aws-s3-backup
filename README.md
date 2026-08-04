@@ -44,7 +44,7 @@ Uploads are verified at each step, and any mismatch aborts the run:
 
 Corruption that already exists before these checks run (e.g. a source file misread while zipping) cannot be detected by them.
 
-To audit what is already in S3 without downloading anything, run `scripts/run-check.sh --config <config.json> [key-prefix]` (or `LIST <prefix> CHECK` directly). It reports, per object, whether the encryption flag and the stored checksum survived, and exits non-zero if any object has a problem:
+To audit what is already in S3 without downloading anything, run `scripts/run-check.sh --config <config.json> [key-prefix]` (or the `CHECK` command directly). It reports, per object, whether the encryption flag and the stored checksum survived, and exits non-zero if any object has a problem:
 
 ```
 scripts/run-check.sh --config config.json
@@ -76,6 +76,7 @@ Option 2: Running directly via Gradle
 
 - `KEYGEN`: Generate encryption keys
 - `LIST`: List S3 objects
+- `CHECK`: Report whether stored objects still have the metadata a restore needs (no download)
 - `UPLOAD-BATCH`: Upload multiple files in batch
 - `UPLOADFILE-ENCRYPT`: Upload and encrypt a file
 - `UPLOADFILE-PLAINTEXT`: Upload a file without encryption

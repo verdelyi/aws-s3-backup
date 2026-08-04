@@ -26,7 +26,8 @@ object Main {
         // Other params are command-dependent
         val command: Runnable? = when (commandStr) {
             "KEYGEN" -> KeygenCommand()
-            "LIST" -> ListCommand(prefix = args[2], format = args[3])
+            "LIST" -> ListCommand(prefix = args.getOrElse(2) { "" }, format = args.getOrElse(3) { "NICE" })
+            "CHECK" -> CheckCommand(prefix = args.getOrElse(2) { "" })
             "UPLOAD-BATCH" -> UploadBatchCommand(
                 batchItems = ConfigLoader.getBatchItems(),
                 storageClass = storageClass

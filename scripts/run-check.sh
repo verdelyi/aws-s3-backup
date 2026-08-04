@@ -21,4 +21,4 @@ done
 [[ -z "$CONFIG" || ${#ARGS[@]} -gt 1 ]] && usage
 
 build_if_needed
-"$BIN" "$CONFIG" LIST "${ARGS[0]:-}" CHECK
+"$BIN" "$CONFIG" CHECK "${ARGS[0]:-}"
