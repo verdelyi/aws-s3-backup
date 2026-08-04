@@ -1,5 +1,6 @@
 #!/bin/bash
 set -e
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
 TARGETHOST="$1"
 echo "Building AWS S3 backup app..."
 ./gradlew distZip

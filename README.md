@@ -47,8 +47,7 @@ Option 2: Running directly via Gradle
 
 ## Remote deployment
 
-1. Make ZIP distribution: `./gradlew distZip`
-2. scp to remote server and unzip
+`scripts/deploy-remote.sh <target-host>` (or `scripts/deploy-remote.ps1 -TargetHost <target-host>` on Windows) builds a ZIP distribution and deploys it via ssh/scp, replacing whatever's at `~/aws-s3-backup` on the remote host.
 
 ## Available commands
 

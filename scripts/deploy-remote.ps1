@@ -1,5 +1,6 @@
 param([string]$TargetHost)
 $ErrorActionPreference = "Stop"
+Set-Location (Join-Path $PSScriptRoot "..")
 Write-Host "Building AWS S3 backup app..."
 ./gradlew distZip
 Write-Host "Deploying to $TargetHost..."
