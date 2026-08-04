@@ -180,18 +180,17 @@ class S3APIWrapper(private val s3AsyncClient: S3AsyncClient) {
         // The upload response doesn't always carry the checksum (it depends on how the upload was
         // routed), so fall back to asking S3 what it actually stored.
         val remoteChecksum = uploadResult.response().checksumCRC64NVME() ?: fetchStoredChecksum(targetKey)
-        if (remoteChecksum == null) {
-            println("  WARNING: S3 reported no CRC64NVME checksum for $targetKey, upload could not be verified")
-            println("  Done (etag: $etag, unverified)")
-            return
-        }
         val localChecksum = Utils.crc64NvmeBase64(sourceFile)
+        // An unverifiable upload counts as a failure: a backup we can't check isn't one we can trust.
         check(remoteChecksum == localChecksum) {
-            "Checksum mismatch after upload to $targetKey: local=$localChecksum remote=$remoteChecksum"
+            "Checksum verification failed for $targetKey: local=$localChecksum remote=$remoteChecksum"
         }
         println("  Done (etag: $etag, crc64nvme verified: $remoteChecksum)")
     }
 
+    // Multipart uploads don't report their checksum in the upload response, so read back what S3
+    // stored. Failures are rethrown as IllegalStateException so they abort the run rather than
+    // being swallowed by Main's handling of AWS exceptions.
     private fun fetchStoredChecksum(targetKey: String): String? = try {
         s3AsyncClient.getObjectAttributes(
             GetObjectAttributesRequest.builder()
@@ -200,8 +199,7 @@ class S3APIWrapper(private val s3AsyncClient: S3AsyncClient) {
                 .build()
         ).join().checksum()?.checksumCRC64NVME()
     } catch (e: Exception) {
-        println("  (could not read stored checksum: ${e.message})")
-        null
+        throw IllegalStateException("Could not read back the stored checksum for $targetKey to verify the upload", e)
     }
 
     @Throws(IOException::class)
