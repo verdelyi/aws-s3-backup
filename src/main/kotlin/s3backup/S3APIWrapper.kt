@@ -78,6 +78,11 @@ class S3APIWrapper(private val s3AsyncClient: S3AsyncClient) {
         }
     }
 
+    // Metadata, checksum and storage class in one request, without transferring the object itself.
+    fun headObject(key: String): HeadObjectResponse = s3AsyncClient.headObject(
+        HeadObjectRequest.builder().bucket(bucketName).key(key).checksumMode(ChecksumMode.ENABLED).build()
+    ).join()
+
     fun downloadFile(sourceKey: String, targetFile: Path) {
         val temporaryEncryptedFile = Utils.createTempFile("s3backup-download-", ".tmp")
         println("Downloading S3 bucket '$bucketName', key '$sourceKey' to local file '${temporaryEncryptedFile}'...")
@@ -88,15 +93,27 @@ class S3APIWrapper(private val s3AsyncClient: S3AsyncClient) {
                 .destination(temporaryEncryptedFile)
                 .build()
             val downloadFile = transferManager.downloadFile(downloadFileRequest)
-            val downloadResult = downloadFile.completionFuture().join()
-
-            val isEncryptedMD = downloadResult.response().metadata()[TagNames.encryption]
-            val isEncrypted = if (isEncryptedMD != null) {
-                isEncryptedMD.toBooleanStrict()
-            } else {
-                println("Encryption metadata not found, assuming that the file is encrypted")
-                true
+            val downloadResult = try {
+                downloadFile.completionFuture().join()
+            } catch (e: CompletionException) {
+                val cause = e.cause
+                if (cause is S3Exception && cause.statusCode() == 404) {
+                    throw IllegalStateException(
+                        "No object named '$sourceKey' in bucket '$bucketName' -- check the key " +
+                                "(run LIST to see what is actually there)"
+                    )
+                }
+                throw e
             }
+
+            // Every object we upload records this. Guessing when it's absent risks handing back a
+            // still-encrypted file as if it were plaintext, so refuse instead. A missing flag
+            // usually means the metadata was dropped, e.g. by an S3 copy that didn't carry it over.
+            val isEncrypted = checkNotNull(downloadResult.response().metadata()[TagNames.encryption]) {
+                "Object '$sourceKey' has no '${TagNames.encryption}' metadata, so it is unknown whether " +
+                        "it is encrypted. The metadata was probably lost by a copy/storage-class change " +
+                        "that did not preserve source settings."
+            }.toBooleanStrict()
 
             Files.newInputStream(temporaryEncryptedFile).use { inStream ->
                 if (isEncrypted) {

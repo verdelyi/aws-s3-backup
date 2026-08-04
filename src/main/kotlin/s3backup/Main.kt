@@ -5,6 +5,7 @@ import software.amazon.awssdk.awscore.exception.AwsServiceException
 import software.amazon.awssdk.core.exception.SdkClientException
 import java.nio.file.Paths
 import java.util.*
+import kotlin.system.exitProcess
 
 object Main {
     @JvmStatic
@@ -65,12 +66,19 @@ object Main {
         }
         try {
             command?.run()
+        } catch (e: IllegalStateException) {
+            // Our own checks (checksum mismatch, missing metadata, unknown key): the message says it all,
+            // a stack trace would only bury it.
+            println("ERROR: ${e.message}")
+            exitProcess(1)
         } catch (e: AwsServiceException) {
             // The call was transmitted successfully, but Amazon S3 couldn't process it, so it returned an error response.
             e.printStackTrace()
+            exitProcess(1)
         } catch (e: SdkClientException) {
             // Amazon S3 couldn't be contacted for a response, or the client couldn't parse the response from Amazon S3.
             e.printStackTrace()
+            exitProcess(1)
         }
     }
 }

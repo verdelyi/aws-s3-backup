@@ -28,9 +28,7 @@ class SimpleProgressListener : TransferListener {
     }
 
     override fun transferFailed(context: TransferListener.Context.TransferFailed) {
-        println() // New line after failure
-        println("Transfer failed: ${context.exception().message}")
-        context.exception().printStackTrace()
+        println() // End the progress line; the exception propagates and is reported by the caller.
     }
 
     private fun updateProgress(ratio: Double) {
