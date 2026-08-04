@@ -10,6 +10,10 @@ repositories {
 
 application {
     mainClass.set("s3backup.Main")
+    // The AWS CRT S3 client loads a native library. Without this, Java 24+ prints a
+    // "restricted method has been called" warning on every run, and a future release
+    // would refuse the call outright.
+    applicationDefaultJvmArgs = listOf("--enable-native-access=ALL-UNNAMED")
 }
 
 dependencies {

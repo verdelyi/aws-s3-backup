@@ -4,7 +4,7 @@ Encrypted backup & restore to Amazon AWS S3
 
 ## Prerequisites
 
-* JDK 17+
+* JDK 25+ (the build targets Java 25)
 * Gradle 8+
 
 ## Example configuration file
